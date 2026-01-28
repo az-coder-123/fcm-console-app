@@ -13,8 +13,34 @@ class SupabaseService {
   /// Initialize Supabase client with provided credentials
   Future<void> initialize(String url, String key) async {
     try {
+      // If Supabase is already initialized, dispose the existing instance
+      // so calling initialize will actually reinitialize with new credentials.
+      try {
+        if (Supabase.instance.isInitialized) {
+          _logger.i('Supabase already initialized - disposing to allow reinitialization');
+          await Supabase.instance.dispose();
+          _client = null;
+        }
+      } catch (disposeErr) {
+        _logger.w('Error disposing existing Supabase instance before reinitialize: $disposeErr');
+      }
+
       final supabase = await Supabase.initialize(url: url, anonKey: key);
       _client = supabase.client;
+
+      // Basic verification: try a lightweight query to ensure credentials work.
+      try {
+        await _client!.from('fcm_user_tokens').select().limit(1);
+      } catch (verifyErr) {
+        _logger.e('Supabase initialization verification failed: $verifyErr');
+        // Dispose instance as verification failed
+        try {
+          if (Supabase.instance.isInitialized) await Supabase.instance.dispose();
+        } catch (_) {}
+        _client = null;
+        rethrow;
+      }
+
       _logger.i('Supabase client initialized successfully');
     } catch (e) {
       _logger.e('Failed to initialize Supabase client: $e');
@@ -180,7 +206,16 @@ class SupabaseService {
   }
 
   /// Reset Supabase client
-  void reset() {
+  Future<void> reset() async {
+    // Dispose Supabase instance if initialized, then clear local client reference
+    try {
+      if (Supabase.instance.isInitialized) {
+        await Supabase.instance.dispose();
+      }
+    } catch (e) {
+      _logger.w('Error disposing Supabase instance during reset: $e');
+    }
+
     _client = null;
     _logger.i('Supabase client reset');
   }

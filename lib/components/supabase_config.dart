@@ -119,17 +119,24 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
   }
 
   Future<void> _initializeClient() async {
+    // Use current form values and validate before initializing
     FocusScope.of(context).unfocus();
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      _showSnack('Please fix validation errors', backgroundColor: Colors.red);
+      return;
+    }
+
+    final url = _urlController.text.trim();
+    final key = _keyController.text.trim();
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       final supabaseService = ref.read(supabaseServiceProvider);
-      await supabaseService.initialize(
-        _urlController.text.trim(),
-        _keyController.text.trim(),
-      );
+      await supabaseService.initialize(url, key);
 
       if (mounted) {
         setState(() {
@@ -195,7 +202,7 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
       await storage.clearSupabaseConfig();
 
       final supabaseService = ref.read(supabaseServiceProvider);
-      supabaseService.reset();
+      await supabaseService.reset();
 
       if (mounted) {
         setState(() {
@@ -314,7 +321,7 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
                   isInitialized: _isInitialized,
                   isSaveEnabled: !_isLoading && _isDirty && _isValid,
                   isInitializeEnabled:
-                      !_isLoading && _isValid && !_isInitialized,
+                      !_isLoading && _isValid && (!_isInitialized || _isDirty),
                   onToggleObscure: () =>
                       setState(() => _obscureKey = !_obscureKey),
                   onSave: _saveConfig,
