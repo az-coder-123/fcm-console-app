@@ -107,45 +107,6 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
     );
   }
 
-  Future<void> _testConnection() async {
-    final activeAccount = ref.read(activeServiceAccountProvider).value;
-    if (activeAccount == null) {
-      _showSnack('Please select a profile first', backgroundColor: Colors.red);
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final supabaseService = ref.read(supabaseServiceProvider);
-      final success = await supabaseService.testConnection();
-
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        _showSnack(
-          success
-              ? 'Connection successful!'
-              : 'Connection failed. Please check your credentials.',
-          backgroundColor: success ? Colors.green : Colors.red,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        _showSnack('Connection test failed: $e', backgroundColor: Colors.red);
-      }
-    }
-  }
-
   Future<void> _clearConfig() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -266,7 +227,6 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
                   onToggleObscure: () =>
                       setState(() => _obscureKey = !_obscureKey),
                   onSave: _saveConfig,
-                  onTest: _testConnection,
                   onClear: _clearConfig,
                 ),
               ), // Expanded

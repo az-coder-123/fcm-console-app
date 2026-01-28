@@ -12,7 +12,6 @@ class SupabaseConfigCard extends StatelessWidget {
   final bool isInitialized;
   final VoidCallback onToggleObscure;
   final VoidCallback onSave;
-  final VoidCallback onTest;
   final VoidCallback onClear;
 
   const SupabaseConfigCard({
@@ -25,7 +24,6 @@ class SupabaseConfigCard extends StatelessWidget {
     required this.isInitialized,
     required this.onToggleObscure,
     required this.onSave,
-    required this.onTest,
     required this.onClear,
   });
 
@@ -105,9 +103,9 @@ class SupabaseConfigCard extends StatelessWidget {
                       isLoading: isLoading,
                       isInitialized: isInitialized,
                       onSave: onSave,
-                      onTest: onTest,
                       onClear: onClear,
                     ),
+                    const SizedBox(height: 24),
 
                     const HelpPanel(),
                   ],
