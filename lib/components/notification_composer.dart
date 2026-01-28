@@ -139,6 +139,8 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
         ref.invalidate(notificationHistoryProvider(activeAccount.id));
       }
     } catch (e) {
+      debugPrint('Error sending notification: $e');
+      debugPrintStack();
       if (mounted) {
         setState(() {
           _isSending = false;

@@ -89,6 +89,8 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
         );
       }
     } catch (e) {
+      debugPrint('Error saving Supabase config: $e');
+      debugPrintStack();
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -204,6 +206,8 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
         );
       }
     } catch (e) {
+      debugPrint('Error clearing Supabase configuration: $e');
+      debugPrintStack();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

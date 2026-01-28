@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
@@ -31,6 +32,8 @@ class FCMService {
       return client;
     } catch (e) {
       _logger.e('Authentication failed: $e');
+      debugPrint('Authentication failed: $e');
+      debugPrintStack();
       rethrow;
     }
   }
@@ -50,6 +53,8 @@ class FCMService {
       return projectId;
     } catch (e) {
       _logger.e('Failed to extract project ID: $e');
+      debugPrint('Failed to extract project ID: $e');
+      debugPrintStack();
       rethrow;
     }
   }
@@ -98,13 +103,17 @@ class FCMService {
               results[token] =
                   (errorBody['error'] as Map<String, dynamic>?)?['message'] ??
                   'Unknown error';
-            } catch (_) {
+            } catch (e) {
+              debugPrint('Failed to parse error body for token $token: $e');
+              debugPrintStack();
               results[token] = 'Unknown error';
             }
           }
         } catch (e) {
           failureCount++;
           results[token] = e.toString();
+          debugPrint('Failed to send to token $token: $e');
+          debugPrintStack();
         }
       }
 
@@ -133,6 +142,8 @@ class FCMService {
       );
     } catch (e) {
       _logger.e('Failed to send notification: $e');
+      debugPrint('Failed to send notification: $e');
+      debugPrintStack();
       return NotificationHistory(
         id: 0,
         serviceAccountId: serviceAccount.id,
@@ -183,7 +194,9 @@ class FCMService {
           errorMessage =
               (errorBody['error'] as Map<String, dynamic>?)?['message'] ??
               'Unknown error';
-        } catch (_) {
+        } catch (e) {
+          debugPrint('Failed to parse topic error body: $e');
+          debugPrintStack();
           errorMessage = 'Unknown error';
         }
         _logger.e('Failed to send to topic: $errorMessage');
@@ -206,6 +219,8 @@ class FCMService {
       );
     } catch (e) {
       _logger.e('Failed to send notification to topic: $e');
+      debugPrint('Failed to send notification to topic: $e');
+      debugPrintStack();
       return NotificationHistory(
         id: 0,
         serviceAccountId: serviceAccount.id,

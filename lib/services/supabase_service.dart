@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -17,6 +18,8 @@ class SupabaseService {
       _logger.i('Supabase client initialized successfully');
     } catch (e) {
       _logger.e('Failed to initialize Supabase client: $e');
+      debugPrint('Failed to initialize Supabase client: $e');
+      debugPrintStack();
       rethrow;
     }
   }
@@ -58,6 +61,8 @@ class SupabaseService {
           tokens.add(token);
         } catch (e) {
           _logger.w('Failed to parse token: $e');
+          debugPrint('Failed to parse token: $e');
+          debugPrintStack();
         }
       }
 
@@ -65,6 +70,8 @@ class SupabaseService {
       return tokens;
     } catch (e) {
       _logger.e('Failed to fetch device tokens: $e');
+      debugPrint('Failed to fetch device tokens: $e');
+      debugPrintStack();
       rethrow;
     }
   }
@@ -96,6 +103,8 @@ class SupabaseService {
           tokens.add(token);
         } catch (e) {
           _logger.w('Failed to parse token: $e');
+          debugPrint('Failed to parse token: $e');
+          debugPrintStack();
         }
       }
 
@@ -103,6 +112,8 @@ class SupabaseService {
       return tokens;
     } catch (e) {
       _logger.e('Failed to fetch tokens by user ID: $e');
+      debugPrint('Failed to fetch tokens by user ID: $e');
+      debugPrintStack();
       rethrow;
     }
   }
@@ -134,6 +145,8 @@ class SupabaseService {
           tokens.add(token);
         } catch (e) {
           _logger.w('Failed to parse token: $e');
+          debugPrint('Failed to parse token: $e');
+          debugPrintStack();
         }
       }
 
@@ -141,6 +154,8 @@ class SupabaseService {
       return tokens;
     } catch (e) {
       _logger.e('Failed to fetch tokens by platform: $e');
+      debugPrint('Failed to fetch tokens by platform: $e');
+      debugPrintStack();
       rethrow;
     }
   }
@@ -158,6 +173,8 @@ class SupabaseService {
       return true;
     } catch (e) {
       _logger.e('Supabase connection test failed: $e');
+      debugPrint('Supabase connection test failed: $e');
+      debugPrintStack();
       return false;
     }
   }

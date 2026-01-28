@@ -318,6 +318,8 @@ class _TokenListState extends ConsumerState<TokenList> {
         );
       }
     } catch (e) {
+      debugPrint('Error fetching tokens: $e');
+      debugPrintStack();
       if (mounted) {
         setState(() {
           _isLoading = false;

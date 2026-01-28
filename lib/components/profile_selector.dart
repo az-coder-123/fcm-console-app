@@ -77,6 +77,8 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
           return;
         }
       } catch (err) {
+        debugPrint('Unable to read/parse selected file: $err');
+        debugPrintStack();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -177,6 +179,8 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
       // Refresh providers
       ref.invalidate(activeServiceAccountProvider);
     } catch (e) {
+      debugPrint('Error selecting profile: $e');
+      debugPrintStack();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -237,6 +241,8 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
       // Refresh the list
       ref.invalidate(serviceAccountsProvider);
     } catch (e) {
+      debugPrint('Error deleting profile: $e');
+      debugPrintStack();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
