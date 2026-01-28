@@ -181,11 +181,13 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
     } catch (e) {
       debugPrint('Error selecting profile: $e');
       debugPrintStack();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error selecting profile: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
           ),
         );
       }
