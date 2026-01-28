@@ -17,12 +17,16 @@ class SupabaseService {
       // so calling initialize will actually reinitialize with new credentials.
       try {
         if (Supabase.instance.isInitialized) {
-          _logger.i('Supabase already initialized - disposing to allow reinitialization');
+          _logger.i(
+            'Supabase already initialized - disposing to allow reinitialization',
+          );
           await Supabase.instance.dispose();
           _client = null;
         }
       } catch (disposeErr) {
-        _logger.w('Error disposing existing Supabase instance before reinitialize: $disposeErr');
+        _logger.w(
+          'Error disposing existing Supabase instance before reinitialize: $disposeErr',
+        );
       }
 
       final supabase = await Supabase.initialize(url: url, anonKey: key);
@@ -35,8 +39,12 @@ class SupabaseService {
         _logger.e('Supabase initialization verification failed: $verifyErr');
         // Dispose instance as verification failed
         try {
-          if (Supabase.instance.isInitialized) await Supabase.instance.dispose();
-        } catch (_) {}
+          if (Supabase.instance.isInitialized) {
+            await Supabase.instance.dispose();
+          }
+        } catch (_) {
+          // ignore dispose errors
+        }
         _client = null;
         rethrow;
       }

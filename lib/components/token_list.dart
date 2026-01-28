@@ -233,61 +233,82 @@ class _TokenListState extends ConsumerState<TokenList> {
   }
 
   Widget _buildTokenCard(DeviceToken token, bool isSelected) {
+    final mutedStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: isSelected ? 4 : 1,
-      child: ListTile(
-        leading: Checkbox(
-          value: isSelected,
-          onChanged: (_) => _toggleTokenSelection(token.token),
-        ),
-        title: Text(
-          '${token.token.substring(0, 20)}...',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (token.userId != null)
-              Text(
-                'User ID: ${token.userId}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+      elevation: isSelected ? 6 : 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _toggleTokenSelection(token.token),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Checkbox(
+                value: isSelected,
+                onChanged: (_) => _toggleTokenSelection(token.token),
               ),
-            if (token.platform != null)
-              Row(
-                children: [
-                  Icon(
-                    _getPlatformIcon(token.platform),
-                    size: 16,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    token.platform!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Tooltip(
+                      message: token.token,
+                      child: Text(
+                        token.token,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            if (token.lastActive != null)
-              Text(
-                'Last Active: ${_formatDate(token.lastActive!)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (token.platform != null) ...[
+                          Icon(_getPlatformIcon(token.platform), size: 16, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 6),
+                          Text(token.platform!, style: mutedStyle),
+                          const SizedBox(width: 12),
+                        ],
+                        if (token.userId != null) ...[
+                          Icon(Icons.person, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 6),
+                          Text('User: ${token.userId}', style: mutedStyle),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        if (token.lastActive != null) ...[
+                          Icon(Icons.access_time, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 6),
+                          Text('Last Active: ${_formatDate(token.lastActive!)}', style: mutedStyle),
+                          const SizedBox(width: 12),
+                        ],
+                        if (token.createdAt != null) ...[
+                          Icon(Icons.calendar_today, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 6),
+                          Text('Created: ${_formatDate(token.createdAt!)}', style: mutedStyle),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
               ),
-          ],
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.content_copy),
-          onPressed: () => _copyToken(token.token),
-          tooltip: 'Copy Token',
+              const SizedBox(width: 12),
+              IconButton(
+                icon: const Icon(Icons.content_copy),
+                onPressed: () => _copyToken(token.token),
+                tooltip: 'Copy token',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -434,7 +455,11 @@ class _TokenListState extends ConsumerState<TokenList> {
     }
   }
 
+  String _pad(int n) => n.toString().padLeft(2, '0');
+
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    final d = '${_pad(date.day)}/${_pad(date.month)}/${date.year}';
+    final t = '${_pad(date.hour)}:${_pad(date.minute)}:${_pad(date.second)}';
+    return '$d $t';
   }
 }
