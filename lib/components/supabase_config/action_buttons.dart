@@ -45,7 +45,9 @@ class ActionButtons extends StatelessWidget {
                 label: const Text('Clear'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  foregroundColor: isInitialized ? Colors.red : Colors.red.withAlpha(128),
+                  foregroundColor: isInitialized
+                      ? Colors.red
+                      : Colors.red.withAlpha(128),
                 ),
               ),
             ),
