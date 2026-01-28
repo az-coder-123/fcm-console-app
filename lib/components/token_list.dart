@@ -263,20 +263,31 @@ class _TokenListState extends ConsumerState<TokenList> {
                         token.token,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
                         if (token.platform != null) ...[
-                          Icon(_getPlatformIcon(token.platform), size: 16, color: Theme.of(context).colorScheme.primary),
+                          Icon(
+                            _getPlatformIcon(token.platform),
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                           const SizedBox(width: 6),
                           Text(token.platform!, style: mutedStyle),
                           const SizedBox(width: 12),
                         ],
                         if (token.userId != null) ...[
-                          Icon(Icons.person, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          Icon(
+                            Icons.person,
+                            size: 14,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 6),
                           Text('User: ${token.userId}', style: mutedStyle),
                         ],
@@ -286,15 +297,33 @@ class _TokenListState extends ConsumerState<TokenList> {
                     Row(
                       children: [
                         if (token.lastActive != null) ...[
-                          Icon(Icons.access_time, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          Icon(
+                            Icons.access_time,
+                            size: 14,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 6),
-                          Text('Last Active: ${_formatDate(token.lastActive!)}', style: mutedStyle),
+                          Text(
+                            'Last Active: ${_formatDate(token.lastActive!)}',
+                            style: mutedStyle,
+                          ),
                           const SizedBox(width: 12),
                         ],
                         if (token.createdAt != null) ...[
-                          Icon(Icons.calendar_today, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          Icon(
+                            Icons.calendar_today,
+                            size: 14,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 6),
-                          Text('Created: ${_formatDate(token.createdAt!)}', style: mutedStyle),
+                          Text(
+                            'Created: ${_formatDate(token.createdAt!)}',
+                            style: mutedStyle,
+                          ),
                         ],
                       ],
                     ),
