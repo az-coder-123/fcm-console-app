@@ -10,8 +10,11 @@ class SupabaseConfigCard extends StatelessWidget {
   final bool obscureKey;
   final bool isLoading;
   final bool isInitialized;
+  final bool isSaveEnabled;
+  final bool isInitializeEnabled;
   final VoidCallback onToggleObscure;
   final VoidCallback onSave;
+  final VoidCallback onInitialize;
   final VoidCallback onClear;
 
   const SupabaseConfigCard({
@@ -22,8 +25,11 @@ class SupabaseConfigCard extends StatelessWidget {
     required this.obscureKey,
     required this.isLoading,
     required this.isInitialized,
+    required this.isSaveEnabled,
+    required this.isInitializeEnabled,
     required this.onToggleObscure,
     required this.onSave,
+    required this.onInitialize,
     required this.onClear,
   });
 
@@ -102,7 +108,10 @@ class SupabaseConfigCard extends StatelessWidget {
                     ActionButtons(
                       isLoading: isLoading,
                       isInitialized: isInitialized,
+                      isSaveEnabled: isSaveEnabled,
+                      isInitializeEnabled: isInitializeEnabled,
                       onSave: onSave,
+                      onInitialize: onInitialize,
                       onClear: onClear,
                     ),
                     const SizedBox(height: 24),

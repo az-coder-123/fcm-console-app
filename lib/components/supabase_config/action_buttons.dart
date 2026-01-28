@@ -3,14 +3,20 @@ import 'package:flutter/material.dart';
 class ActionButtons extends StatelessWidget {
   final bool isLoading;
   final bool isInitialized;
+  final bool isSaveEnabled;
+  final bool isInitializeEnabled;
   final VoidCallback onSave;
+  final VoidCallback onInitialize;
   final VoidCallback onClear;
 
   const ActionButtons({
     super.key,
     required this.isLoading,
     required this.isInitialized,
+    required this.isSaveEnabled,
+    required this.isInitializeEnabled,
     required this.onSave,
+    required this.onInitialize,
     required this.onClear,
   });
 
@@ -23,7 +29,7 @@ class ActionButtons extends StatelessWidget {
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: isLoading ? null : onSave,
+                onPressed: (isSaveEnabled && !isLoading) ? onSave : null,
                 icon: isLoading
                     ? const SizedBox(
                         width: 16,
@@ -54,6 +60,22 @@ class ActionButtons extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: isLoading || !isInitializeEnabled
+                    ? null
+                    : onInitialize,
+                icon: const Icon(Icons.power_settings_new),
+                label: const Text('Initialize'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

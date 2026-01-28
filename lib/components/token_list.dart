@@ -301,6 +301,58 @@ class _TokenListState extends ConsumerState<TokenList> {
 
     try {
       final supabaseService = ref.read(supabaseServiceProvider);
+
+      // If the Supabase client is not initialized, try to initialize from stored config
+      if (!supabaseService.isInitialized) {
+        final storage = ref.read(storageServiceProvider);
+        final url = await storage.getSupabaseUrl();
+        final key = await storage.getSupabaseKey();
+
+        if (url != null && key != null) {
+          try {
+            await supabaseService.initialize(url, key);
+          } catch (e) {
+            debugPrint(
+              'Error initializing Supabase before fetching tokens: $e',
+            );
+            debugPrintStack();
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+                _errorMessage = 'Failed to initialize Supabase: $e';
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to initialize Supabase: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
+        } else {
+          // No stored config available
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage =
+                  'Supabase not initialized. Please configure Supabase first.';
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Supabase not initialized. Please configure Supabase first.',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
       final tokens = await supabaseService.fetchDeviceTokens();
 
       if (mounted) {
@@ -308,6 +360,7 @@ class _TokenListState extends ConsumerState<TokenList> {
           _isLoading = false;
           _tokens = tokens;
           _selectedTokens.clear();
+          _errorMessage = null;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(

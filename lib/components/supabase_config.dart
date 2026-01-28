@@ -21,14 +21,26 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
   bool _isLoading = false;
   bool _isInitialized = false;
 
+  // Track original values to detect unsaved changes
+  String _originalUrl = '';
+  String _originalKey = '';
+  bool _isDirty = false;
+  bool _isValid = false;
+
   @override
   void initState() {
     super.initState();
     _loadConfig();
+
+    // Listen for input changes to update dirty state
+    _urlController.addListener(_onInputChanged);
+    _keyController.addListener(_onInputChanged);
   }
 
   @override
   void dispose() {
+    _urlController.removeListener(_onInputChanged);
+    _keyController.removeListener(_onInputChanged);
     _urlController.dispose();
     _keyController.dispose();
     super.dispose();
@@ -41,9 +53,13 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
 
     if (mounted) {
       setState(() {
-        _urlController.text = url ?? '';
-        _keyController.text = key ?? '';
+        _originalUrl = url ?? '';
+        _originalKey = key ?? '';
+        _urlController.text = _originalUrl;
+        _keyController.text = _originalKey;
         _isInitialized = url != null && key != null;
+        _isDirty = false;
+        _isValid = _isInputValid();
       });
     }
   }
@@ -75,6 +91,10 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
         setState(() {
           _isLoading = false;
           _isInitialized = true;
+          _originalUrl = _urlController.text.trim();
+          _originalKey = _keyController.text.trim();
+          _isDirty = false;
+          _isValid = _isInputValid();
         });
 
         _showSnack(
@@ -94,6 +114,43 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
           'Error saving configuration: $e',
           backgroundColor: Colors.red,
         );
+      }
+    }
+  }
+
+  Future<void> _initializeClient() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final supabaseService = ref.read(supabaseServiceProvider);
+      await supabaseService.initialize(
+        _urlController.text.trim(),
+        _keyController.text.trim(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _isLoading = false;
+        });
+
+        _showSnack(
+          'Supabase client initialized',
+          backgroundColor: Colors.green,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error initializing Supabase client: $e');
+      debugPrintStack();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        _showSnack('Initialization failed: $e', backgroundColor: Colors.red);
       }
     }
   }
@@ -144,7 +201,11 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
         setState(() {
           _urlController.clear();
           _keyController.clear();
+          _originalUrl = '';
+          _originalKey = '';
           _isInitialized = false;
+          _isDirty = false;
+          _isValid = false;
         });
 
         _showSnack('Configuration cleared', backgroundColor: Colors.green);
@@ -159,6 +220,33 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
         );
       }
     }
+  }
+
+  void _onInputChanged() {
+    final url = _urlController.text.trim();
+    final key = _keyController.text.trim();
+    final dirty = url != _originalUrl || key != _originalKey;
+    final valid = _isInputValid();
+    if (mounted && (dirty != _isDirty || valid != _isValid)) {
+      setState(() {
+        _isDirty = dirty;
+        _isValid = valid;
+      });
+    }
+  }
+
+  bool _isInputValid() {
+    final v = _urlController.text.trim();
+    if (v.isEmpty) return false;
+    final uri = Uri.tryParse(v);
+    if (uri == null ||
+        !(uri.scheme == 'http' || uri.scheme == 'https') ||
+        uri.host.isEmpty) {
+      return false;
+    }
+    final k = _keyController.text.trim();
+    if (k.isEmpty) return false;
+    return true;
   }
 
   @override
@@ -224,9 +312,13 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
                   obscureKey: _obscureKey,
                   isLoading: _isLoading,
                   isInitialized: _isInitialized,
+                  isSaveEnabled: !_isLoading && _isDirty && _isValid,
+                  isInitializeEnabled:
+                      !_isLoading && _isValid && !_isInitialized,
                   onToggleObscure: () =>
                       setState(() => _obscureKey = !_obscureKey),
                   onSave: _saveConfig,
+                  onInitialize: _initializeClient,
                   onClear: _clearConfig,
                 ),
               ), // Expanded
