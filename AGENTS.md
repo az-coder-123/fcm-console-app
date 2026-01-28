@@ -8,6 +8,7 @@ This document outlines the guidelines and best practices for developing AI Agent
 ### 1. Code Clarity and Maintainability
 - **Clean Code Principles**: All source code must be clear, understandable, and maintainable. Follow the Clean Code principles to enhance readability and reduce complexity.
 - **Single Responsibility Principle**: Each file, class, and method/function should have a single responsibility. This minimizes code duplication and logic duplication, promoting high reusability.
+- **Limit file/class/function size**: Keep files, classes, and functions short and focused to make code easier to read, test, and maintain. As a soft guideline, prefer files under ~400 lines, classes under ~200 lines, and functions/methods under ~80 lines; when these sizes are exceeded, extract components, helpers, or widgets into smaller, well-named files. Exceptions are allowed with a short justification in the pull request description, and reviewers should flag large units and suggest refactors where appropriate.
 
 ### 2. State Management
 - **Riverpod**: Utilize Riverpod for state management within the application. Ensure that state management is efficient and follows best practices to maintain application performance.
