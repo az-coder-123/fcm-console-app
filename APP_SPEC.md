@@ -21,7 +21,7 @@ The app must support multiple profiles. Each profile corresponds to a specific p
 ## 2. Supabase Integration (Dynamic Config)
 Since each Service Account relates to a backend, the user must manually configure Supabase connection details for the active profile.
 * **Settings UI:** Inputs for `Supabase URL` and `Supabase Anon/Service Key`.
-* **Functionality:** Use these credentials to fetch a list of `device_tokens` from a remote Supabase table.
+* **Functionality:** Use these credentials to fetch a list of `fcm_user_tokens` from a remote Supabase table.
 * **Security:** Store these keys using `flutter_secure_storage`.
 
 ## 3. Notification Sending Logic (The Core)

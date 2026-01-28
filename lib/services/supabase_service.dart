@@ -37,7 +37,7 @@ class SupabaseService {
 
   /// Fetch all device tokens from the specified table
   Future<List<DeviceToken>> fetchDeviceTokens({
-    String tableName = 'device_tokens',
+    String tableName = 'fcm_user_tokens',
   }) async {
     if (!isInitialized) {
       throw Exception('Supabase not initialized');
@@ -79,7 +79,7 @@ class SupabaseService {
   /// Fetch device tokens filtered by user ID
   Future<List<DeviceToken>> fetchTokensByUserId({
     required String userId,
-    String tableName = 'device_tokens',
+    String tableName = 'fcm_user_tokens',
   }) async {
     if (!isInitialized) {
       throw Exception('Supabase not initialized');
@@ -121,7 +121,7 @@ class SupabaseService {
   /// Fetch device tokens filtered by platform
   Future<List<DeviceToken>> fetchTokensByPlatform({
     required String platform,
-    String tableName = 'device_tokens',
+    String tableName = 'fcm_user_tokens',
   }) async {
     if (!isInitialized) {
       throw Exception('Supabase not initialized');
@@ -168,7 +168,7 @@ class SupabaseService {
 
     try {
       // Simple query to test connection
-      await client.from('device_tokens').select().limit(1);
+      await client.from('fcm_user_tokens').select().limit(1);
       _logger.i('Supabase connection test successful');
       return true;
     } catch (e) {

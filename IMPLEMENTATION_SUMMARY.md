@@ -218,6 +218,6 @@ flutter run -d macos  # or windows, linux
 ## Notes
 
 - The application requires Firebase Service Account JSON files
-- Supabase must have a `device_tokens` table configured
+- Supabase must have a `fcm_user_tokens` table configured
 - All data is stored locally in SQLite database
 - Service Account JSON files are stored at their original file paths

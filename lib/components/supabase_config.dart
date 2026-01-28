@@ -1,3 +1,4 @@
+import 'package:fcmapp/components/supabase_config/form_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,6 +16,7 @@ class SupabaseConfig extends ConsumerStatefulWidget {
 class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
   final _urlController = TextEditingController();
   final _keyController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   bool _obscureKey = true;
   bool _isLoading = false;
   bool _isInitialized = false;
@@ -47,15 +49,9 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
   }
 
   Future<void> _saveConfig() async {
-    if (_urlController.text.isEmpty || _keyController.text.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fill in all fields'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    FocusScope.of(context).unfocus();
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      _showSnack('Please fix validation errors', backgroundColor: Colors.red);
       return;
     }
 
@@ -81,11 +77,9 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
           _isInitialized = true;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Supabase configuration saved'),
-            backgroundColor: Colors.green,
-          ),
+        _showSnack(
+          'Supabase configuration saved',
+          backgroundColor: Colors.green,
         );
       }
     } catch (e) {
@@ -96,30 +90,31 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving configuration: $e'),
-            backgroundColor: Colors.red,
-          ),
+        _showSnack(
+          'Error saving configuration: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
   }
 
+  void _showSnack(String message, {Color? backgroundColor}) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: backgroundColor),
+    );
+  }
+
   Future<void> _testConnection() async {
     final activeAccount = ref.read(activeServiceAccountProvider).value;
     if (activeAccount == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a profile first'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _showSnack('Please select a profile first', backgroundColor: Colors.red);
       return;
     }
 
+    FocusScope.of(context).unfocus();
     setState(() {
       _isLoading = true;
     });
@@ -133,15 +128,11 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success
-                  ? 'Connection successful!'
-                  : 'Connection failed. Please check your credentials.',
-            ),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
+        _showSnack(
+          success
+              ? 'Connection successful!'
+              : 'Connection failed. Please check your credentials.',
+          backgroundColor: success ? Colors.green : Colors.red,
         );
       }
     } catch (e) {
@@ -150,12 +141,7 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Connection test failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnack('Connection test failed: $e', backgroundColor: Colors.red);
       }
     }
   }
@@ -182,7 +168,9 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
 
     try {
       final storage = ref.read(storageServiceProvider);
@@ -198,22 +186,15 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
           _isInitialized = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Configuration cleared'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSnack('Configuration cleared', backgroundColor: Colors.green);
       }
     } catch (e) {
       debugPrint('Error clearing Supabase configuration: $e');
       debugPrintStack();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error clearing configuration: $e'),
-            backgroundColor: Colors.red,
-          ),
+        _showSnack(
+          'Error clearing configuration: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -275,190 +256,20 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
 
               // Configuration form
               Expanded(
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Status indicator
-                        if (_isInitialized)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.check_circle,
-                                  color: Colors.green.shade800,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Supabase is configured',
-                                  style: TextStyle(
-                                    color: Colors.green.shade800,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                        // URL field
-                        TextField(
-                          controller: _urlController,
-                          decoration: const InputDecoration(
-                            labelText: 'Supabase URL',
-                            hintText: 'https://your-project.supabase.co',
-                            prefixIcon: Icon(Icons.link),
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: !_isLoading,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Key field
-                        TextField(
-                          controller: _keyController,
-                          obscureText: _obscureKey,
-                          decoration: InputDecoration(
-                            labelText: 'Supabase Anon/Service Key',
-                            hintText: 'Enter your Supabase API key',
-                            prefixIcon: const Icon(Icons.key),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscureKey
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscureKey = !_obscureKey;
-                                });
-                              },
-                            ),
-                            border: const OutlineInputBorder(),
-                          ),
-                          enabled: !_isLoading,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _isLoading ? null : _saveConfig,
-                                icon: _isLoading
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.save),
-                                label: Text(
-                                  _isLoading
-                                      ? 'Saving...'
-                                      : 'Save Configuration',
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _isLoading || !_isInitialized
-                                    ? null
-                                    : _testConnection,
-                                icon: const Icon(Icons.wifi_tethering),
-                                label: const Text('Test Connection'),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: TextButton.icon(
-                            onPressed: _isLoading ? null : _clearConfig,
-                            icon: const Icon(Icons.clear),
-                            label: const Text('Clear Configuration'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.red,
-                            ),
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        // Help text
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    size: 20,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Help',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Supabase configuration is required to fetch device tokens. '
-                                'Make sure your device_tokens table is properly set up.',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: SupabaseConfigCard(
+                  urlController: _urlController,
+                  keyController: _keyController,
+                  formKey: _formKey,
+                  obscureKey: _obscureKey,
+                  isLoading: _isLoading,
+                  isInitialized: _isInitialized,
+                  onToggleObscure: () =>
+                      setState(() => _obscureKey = !_obscureKey),
+                  onSave: _saveConfig,
+                  onTest: _testConnection,
+                  onClear: _clearConfig,
                 ),
-              ),
+              ), // Expanded
             ],
           ],
         ),

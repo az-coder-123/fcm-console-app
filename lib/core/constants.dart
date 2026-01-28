@@ -9,7 +9,7 @@ class AppConstants {
   static const String tableNotificationHistory = 'notification_history';
 
   // Supabase
-  static const String defaultDeviceTokenTable = 'device_tokens';
+  static const String defaultDeviceTokenTable = 'fcm_user_tokens';
 
   // FCM
   static const String fcmEndpoint = 'https://fcm.googleapis.com/v1/projects';
