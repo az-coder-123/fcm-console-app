@@ -24,5 +24,9 @@ This document outlines the guidelines and best practices for developing AI Agent
 ### 6. Documentation
 - **English Documentation**: All documentation must be written in English. It should be clear, professional, and closely aligned with real-world practices. Avoid speculation and ensure accuracy in all descriptions.
 
+### 7. Responsive Design
+- **Adaptive UI**: All screens, layouts, and UI components must be designed responsively to accommodate a range of screen sizes and window dimensions on desktop platforms (Windows, MacOS, Linux).
+- **Implementation Guidance**: Prefer flexible layouts (e.g., MediaQuery, LayoutBuilder, FractionallySizedBox), adaptive widgets, and well-defined breakpoints to ensure consistent experience across sizes.
+
 ## Conclusion
 By adhering to these guidelines, we can ensure that our AI Agents are developed in a manner that is efficient, maintainable, and aligned with industry best practices. This will contribute to the overall success and reliability of the application.
