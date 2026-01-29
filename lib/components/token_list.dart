@@ -4,7 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/device_token.dart';
 import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
-import 'token_list/token_card.dart';
+import 'token_list/error_message.dart';
+import 'token_list/info_bar.dart';
+import 'token_list/search_filters.dart';
+import 'token_list/selected_counter.dart';
+import 'token_list/token_list_service.dart';
+import 'token_list/tokens_area.dart';
+import 'token_list/top_actions.dart';
 
 /// Token list component for displaying device tokens from Supabase
 /// Displays fetched tokens with filtering and selection capabilities
@@ -106,259 +112,63 @@ class _TokenListState extends ConsumerState<TokenList> {
             if (activeAccountAsync.value != null) ...[
               const SizedBox(height: 24),
 
-              // Header actions: Fetch, Select All, Clear
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _fetchTokens,
-                    icon: _isLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh),
-                    label: Text(_isLoading ? 'Loading...' : 'Fetch Tokens'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    onPressed: visibleTokens.isEmpty
-                        ? null
-                        : _selectAllVisibleTokens,
-                    child: const Text('Select All'),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () => ref
-                        .read(notificationFormProvider.notifier)
-                        .clearSelectedTokens(),
-                    child: const Text('Clear'),
-                  ),
-                ],
+              TokenListTopActions(
+                isLoading: _isLoading,
+                onFetch: _fetchTokens,
+                onSelectAll: _selectAllVisibleTokens,
+                onClear: () => ref
+                    .read(notificationFormProvider.notifier)
+                    .clearSelectedTokens(),
+                selectAllEnabled: visibleTokens.isNotEmpty,
               ),
 
               const SizedBox(height: 12),
 
-              // Search and platform filters
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.search),
-                        hintText: 'Search tokens or userId',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: ['All', 'iOS', 'Android', 'Web'].map((platform) {
-                      final selected = _platformFilter == platform;
-                      return ChoiceChip(
-                        label: Text(platform),
-                        selected: selected,
-                        onSelected: (_) => setState(() {
-                          _platformFilter = platform;
-                        }),
-                      );
-                    }).toList(),
-                  ),
-                ],
+              TokenListSearchFilters(
+                searchController: _searchController,
+                platformFilter: _platformFilter,
+                onSearchChanged: () => setState(() {}),
+                onPlatformSelected: (p) => setState(() => _platformFilter = p),
               ),
 
               const SizedBox(height: 12),
 
-              // Info bar
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Text('${visibleTokens.length} tokens'),
-                    const SizedBox(width: 12),
-                    const VerticalDivider(width: 1),
-                    const SizedBox(width: 12),
-                    Text('${formState.selectedTokens.length} selected'),
-                    const Spacer(),
-                    if (_errorMessage != null)
-                      Flexible(
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(color: Colors.red.shade700),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                ),
+              TokenListInfoBar(
+                visibleCount: visibleTokens.length,
+                selectedCount: formState.selectedTokens.length,
+                errorMessage: _errorMessage,
               ),
 
               const SizedBox(height: 12),
 
-              // Error message
               if (_errorMessage != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error, color: Colors.red.shade800),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(color: Colors.red.shade800),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          setState(() {
-                            _errorMessage = null;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
+                TokenListErrorMessage(
+                  message: _errorMessage!,
+                  onClose: () => setState(() => _errorMessage = null),
                 ),
 
-              // Selected tokens counter
               if (formState.selectedTokens.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.check_circle, color: Colors.blue.shade800),
-                          const SizedBox(width: 12),
-                          Text(
-                            '${formState.selectedTokens.length} token(s) selected',
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          ref
-                              .read(notificationFormProvider.notifier)
-                              .clearSelectedTokens();
-                        },
-                        child: const Text('Clear'),
-                      ),
-                    ],
-                  ),
+                TokenListSelectedCounter(
+                  selectedCount: formState.selectedTokens.length,
+                  onClear: () => ref
+                      .read(notificationFormProvider.notifier)
+                      .clearSelectedTokens(),
                 ),
 
-              // Tokens list
+              // Tokens list area
               Expanded(
-                child: _tokens.isEmpty
-                    ? _buildEmptyState(supabaseService.isInitialized)
-                    : (visibleTokens.isNotEmpty
-                          ? _buildTokensList(
-                              visibleTokens,
-                              formState.selectedTokens,
-                            )
-                          : Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Text(
-                                'No tokens match your filters.',
-                                style: TextStyle(color: Colors.grey.shade600),
-                              ),
-                            )),
+                child: TokenListArea(
+                  hasTokens: _tokens.isNotEmpty,
+                  visibleTokens: visibleTokens,
+                  isInitialized: supabaseService.isInitialized,
+                  selectedTokens: formState.selectedTokens,
+                  onToggleToken: _toggleTokenSelection,
+                ),
               ),
             ],
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildEmptyState(bool isConfigured) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            isConfigured ? Icons.devices : Icons.settings,
-            size: 64,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            isConfigured ? 'No tokens found' : 'Supabase not configured',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isConfigured
-                ? 'Click "Fetch Tokens" to load device tokens from Supabase'
-                : 'Please configure Supabase first in the Supabase Config section',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTokensList(
-    List<DeviceToken> tokens,
-    Set<String> selectedTokens,
-  ) {
-    return ListView.separated(
-      itemCount: tokens.length,
-      separatorBuilder: (context, index) => const Divider(height: 0),
-      itemBuilder: (context, index) {
-        final token = tokens[index];
-        final isSelected = selectedTokens.contains(token.token);
-        return TokenCard(
-          token: token,
-          isSelected: isSelected,
-          onTap: () => _toggleTokenSelection(token.token),
-        );
-      },
     );
   }
 
@@ -406,93 +216,44 @@ class _TokenListState extends ConsumerState<TokenList> {
 
     try {
       final supabaseService = ref.read(supabaseServiceProvider);
+      final tokens = await TokenListService.fetchTokensWithInit(
+        ref,
+        supabaseService,
+      );
 
-      // If the Supabase client is not initialized, try to initialize from stored config
-      if (!supabaseService.isInitialized) {
-        final storage = ref.read(storageServiceProvider);
-        final url = await storage.getSupabaseUrl();
-        final key = await storage.getSupabaseKey();
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _tokens = tokens;
+        _errorMessage = null;
+      });
 
-        if (url != null && key != null) {
-          try {
-            await supabaseService.initialize(url, key);
-          } catch (e) {
-            debugPrint(
-              'Error initializing Supabase before fetching tokens: $e',
-            );
-            debugPrintStack();
-            if (mounted) {
-              setState(() {
-                _isLoading = false;
-                _errorMessage = 'Failed to initialize Supabase: $e';
-              });
+      // Clear previous selections
+      ref.read(notificationFormProvider.notifier).clearSelectedTokens();
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Failed to initialize Supabase: $e'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-            return;
-          }
-        } else {
-          // No stored config available
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-              _errorMessage =
-                  'Supabase not initialized. Please configure Supabase first.';
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Supabase not initialized. Please configure Supabase first.',
-                ),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return;
-        }
-      }
-
-      final tokens = await supabaseService.fetchDeviceTokens();
-
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _tokens = tokens;
-          _errorMessage = null;
-        });
-
-        // Clear previous selections
-        ref.read(notificationFormProvider.notifier).clearSelectedTokens();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fetched ${tokens.length} device tokens'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fetched ${tokens.length} device tokens'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       debugPrint('Error fetching tokens: $e');
       debugPrintStack();
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = e.toString();
-        });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error fetching tokens: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error fetching tokens: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
