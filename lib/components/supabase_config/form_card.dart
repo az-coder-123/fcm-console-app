@@ -1,4 +1,3 @@
-import 'package:fcmapp/components/supabase_config/action_buttons.dart';
 import 'package:fcmapp/components/supabase_config/help_panel.dart';
 import 'package:fcmapp/components/supabase_config/status_badge.dart';
 import 'package:flutter/material.dart';
@@ -10,11 +9,9 @@ class SupabaseConfigCard extends StatelessWidget {
   final bool obscureKey;
   final bool isLoading;
   final bool isInitialized;
-  final bool isSaveEnabled;
-  final bool isInitializeEnabled;
+  final bool isApplyEnabled;
   final VoidCallback onToggleObscure;
-  final VoidCallback onSave;
-  final VoidCallback onInitialize;
+  final VoidCallback onApply;
   final VoidCallback onClear;
 
   const SupabaseConfigCard({
@@ -25,11 +22,9 @@ class SupabaseConfigCard extends StatelessWidget {
     required this.obscureKey,
     required this.isLoading,
     required this.isInitialized,
-    required this.isSaveEnabled,
-    required this.isInitializeEnabled,
+    required this.isApplyEnabled,
     required this.onToggleObscure,
-    required this.onSave,
-    required this.onInitialize,
+    required this.onApply,
     required this.onClear,
   });
 
@@ -104,15 +99,48 @@ class SupabaseConfigCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // Buttons and actions
-                    ActionButtons(
-                      isLoading: isLoading,
-                      isInitialized: isInitialized,
-                      isSaveEnabled: isSaveEnabled,
-                      isInitializeEnabled: isInitializeEnabled,
-                      onSave: onSave,
-                      onInitialize: onInitialize,
-                      onClear: onClear,
+                    // Apply and Clear buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: (isApplyEnabled && !isLoading)
+                                ? onApply
+                                : null,
+                            icon: isLoading
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.check_circle),
+                            label: Text(isLoading ? 'Applying...' : 'Apply'),
+                            style: ElevatedButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isLoading || !isInitialized
+                                ? null
+                                : onClear,
+                            icon: const Icon(Icons.clear),
+                            label: const Text('Clear'),
+                            style: OutlinedButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 16),
+                              foregroundColor: isInitialized
+                                  ? Colors.red
+                                  : Colors.red.withAlpha(128),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
 

@@ -66,7 +66,7 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
     }
   }
 
-  Future<void> _saveConfig() async {
+  Future<void> _applyConfig() async {
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) {
       _showSnack('Please fix validation errors', backgroundColor: Colors.red);
@@ -79,87 +79,44 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
 
     try {
       final storage = ref.read(storageServiceProvider);
-      await storage.setSupabaseUrl(_urlController.text.trim());
-      await storage.setSupabaseKey(_keyController.text.trim());
+      final url = _urlController.text.trim();
+      final key = _keyController.text.trim();
+
+      // Save to storage
+      await storage.setSupabaseUrl(url);
+      await storage.setSupabaseKey(key);
 
       // Initialize Supabase client
-      final supabaseService = ref.read(supabaseServiceProvider);
-      await supabaseService.initialize(
-        _urlController.text.trim(),
-        _keyController.text.trim(),
-      );
-
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _isInitialized = true;
-          _originalUrl = _urlController.text.trim();
-          _originalKey = _keyController.text.trim();
-          _isDirty = false;
-          _isValid = _isInputValid();
-        });
-
-        _showSnack(
-          'Supabase configuration saved',
-          backgroundColor: Colors.green,
-        );
-      }
-    } catch (e) {
-      debugPrint('Error saving Supabase config: $e');
-      debugPrintStack();
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        _showSnack(
-          'Error saving configuration: $e',
-          backgroundColor: Colors.red,
-        );
-      }
-    }
-  }
-
-  Future<void> _initializeClient() async {
-    // Use current form values and validate before initializing
-    FocusScope.of(context).unfocus();
-
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      _showSnack('Please fix validation errors', backgroundColor: Colors.red);
-      return;
-    }
-
-    final url = _urlController.text.trim();
-    final key = _keyController.text.trim();
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
       final supabaseService = ref.read(supabaseServiceProvider);
       await supabaseService.initialize(url, key);
 
       if (mounted) {
         setState(() {
-          _isInitialized = true;
           _isLoading = false;
+          _isInitialized = true;
+          _originalUrl = url;
+          _originalKey = key;
+          _isDirty = false;
+          _isValid = _isInputValid();
         });
 
         _showSnack(
-          'Supabase client initialized',
+          'Supabase configuration applied successfully',
           backgroundColor: Colors.green,
         );
       }
     } catch (e) {
-      debugPrint('Error initializing Supabase client: $e');
+      debugPrint('Error applying Supabase config: $e');
       debugPrintStack();
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
 
-        _showSnack('Initialization failed: $e', backgroundColor: Colors.red);
+        _showSnack(
+          'Error applying configuration: $e',
+          backgroundColor: Colors.red,
+        );
       }
     }
   }
@@ -292,13 +249,10 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
                   obscureKey: _obscureKey,
                   isLoading: _isLoading,
                   isInitialized: _isInitialized,
-                  isSaveEnabled: !_isLoading && _isDirty && _isValid,
-                  isInitializeEnabled:
-                      !_isLoading && _isValid && (!_isInitialized || _isDirty),
+                  isApplyEnabled: !_isLoading && _isDirty && _isValid,
                   onToggleObscure: () =>
                       setState(() => _obscureKey = !_obscureKey),
-                  onSave: _saveConfig,
-                  onInitialize: _initializeClient,
+                  onApply: _applyConfig,
                   onClear: _clearConfig,
                 ),
               ), // Expanded
