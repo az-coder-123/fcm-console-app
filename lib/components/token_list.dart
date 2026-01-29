@@ -71,6 +71,7 @@ class _TokenListState extends ConsumerState<TokenList> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
             // Header
             const PageHeader(
               title: 'Device Tokens',
@@ -78,10 +79,6 @@ class _TokenListState extends ConsumerState<TokenList> {
                   'View and select device tokens from your Supabase database.',
             ),
             const SizedBox(height: 24),
-
-            // Active profile check
-            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
-
             if (activeAccountAsync.value != null) ...[
               const SizedBox(height: 24),
 

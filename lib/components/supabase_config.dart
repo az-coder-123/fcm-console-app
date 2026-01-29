@@ -236,6 +236,7 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
             // Header
             const PageHeader(
               title: 'Supabase Configuration',
@@ -243,10 +244,6 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
                   'Configure Supabase connection to fetch device tokens for the active profile.',
             ),
             const SizedBox(height: 24),
-
-            // Active profile warning
-            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
-
             if (activeAccountAsync.value != null) ...[
               const SizedBox(height: 24),
 

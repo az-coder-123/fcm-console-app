@@ -29,6 +29,7 @@ class _NotificationHistoryViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
             // Header
             const PageHeader(
               title: 'Notification History',
@@ -36,9 +37,6 @@ class _NotificationHistoryViewState
                   'View history of sent notifications for the active profile.',
             ),
             const SizedBox(height: 24),
-
-            // Active profile check
-            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
             activeAccountAsync.when(
               data: (account) {
                 if (account == null) {

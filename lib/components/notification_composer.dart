@@ -27,13 +27,12 @@ class NotificationComposer extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
               const PageHeader(
                 title: 'Send Notification',
                 subtitle:
                     'Compose and send Firebase Cloud Messaging notifications.',
               ),
-              const SizedBox(height: 8),
-              ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
               if (activeAccountAsync.value != null) ...[
                 const SizedBox(height: 24),
                 _buildTokenSelectionSection(formState.sendToTopic),
