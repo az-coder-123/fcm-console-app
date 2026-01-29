@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import 'page_header.dart';
+import 'profile_required_banner.dart';
 
 /// Supabase configuration component
 /// Allows users to configure Supabase connection for the active profile
@@ -277,35 +278,7 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
             const SizedBox(height: 24),
 
             // Active profile warning
-            activeAccountAsync.when(
-              data: (account) {
-                if (account == null) {
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.orange.shade800),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Please select a Firebase Service Account profile first',
-                            style: TextStyle(color: Colors.orange.shade800),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const SizedBox.shrink(),
-            ),
+            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
 
             if (activeAccountAsync.value != null) ...[
               const SizedBox(height: 24),

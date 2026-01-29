@@ -5,6 +5,7 @@ import '../models/device_token.dart';
 import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
 import 'page_header.dart';
+import 'profile_required_banner.dart';
 import 'token_list/error_message.dart';
 import 'token_list/info_bar.dart';
 import 'token_list/search_filters.dart';
@@ -79,35 +80,7 @@ class _TokenListState extends ConsumerState<TokenList> {
             const SizedBox(height: 24),
 
             // Active profile check
-            activeAccountAsync.when(
-              data: (account) {
-                if (account == null) {
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.orange.shade800),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Please select a Firebase Service Account profile first',
-                            style: TextStyle(color: Colors.orange.shade800),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const SizedBox.shrink(),
-            ),
+            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
 
             if (activeAccountAsync.value != null) ...[
               const SizedBox(height: 24),

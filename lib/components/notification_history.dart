@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import 'notification_history/notification_history_card.dart';
 import 'page_header.dart';
+import 'profile_required_banner.dart';
 
 /// Notification history component for viewing sent notifications
 /// Displays a list of all sent notifications with their status
@@ -37,33 +38,15 @@ class _NotificationHistoryViewState
             const SizedBox(height: 24),
 
             // Active profile check
+            ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
             activeAccountAsync.when(
               data: (account) {
                 if (account == null) {
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.orange.shade800),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Please select a Firebase Service Account profile first',
-                            style: TextStyle(color: Colors.orange.shade800),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                  return const SizedBox.shrink();
                 }
                 return _buildHistoryList(account.id);
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
             ),
           ],

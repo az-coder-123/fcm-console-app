@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/service_account.dart';
 import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
 import 'data_pairs_editor.dart';
 import 'notification_form_fields.dart';
 import 'notification_send_helper.dart';
 import 'page_header.dart';
+import 'profile_required_banner.dart';
 import 'token_selection_section.dart';
 
 /// Main notification composer widget for creating and sending FCM notifications
@@ -33,7 +33,7 @@ class NotificationComposer extends ConsumerWidget {
                     'Compose and send Firebase Cloud Messaging notifications.',
               ),
               const SizedBox(height: 8),
-              _buildProfileCheck(activeAccountAsync),
+              ProfileRequiredBanner(activeAccountAsync: activeAccountAsync),
               if (activeAccountAsync.value != null) ...[
                 const SizedBox(height: 24),
                 _buildTokenSelectionSection(formState.sendToTopic),
@@ -52,40 +52,6 @@ class NotificationComposer extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
-
-  static Widget _buildProfileCheck(
-    AsyncValue<ServiceAccount?> activeAccountAsync,
-  ) {
-    return activeAccountAsync.when(
-      data: (account) {
-        if (account == null) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade100,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.warning, color: Colors.orange.shade800),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Please select a Firebase Service Account profile first',
-                    style: TextStyle(color: Colors.orange.shade800),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, _) => const SizedBox.shrink(),
     );
   }
 
