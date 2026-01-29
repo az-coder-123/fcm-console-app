@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/device_token.dart';
 import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
+import 'token_list/token_card.dart';
 
 /// Token list component for displaying device tokens from Supabase
 /// Displays fetched tokens with filtering and selection capabilities
@@ -353,120 +353,49 @@ class _TokenListState extends ConsumerState<TokenList> {
       itemBuilder: (context, index) {
         final token = tokens[index];
         final isSelected = selectedTokens.contains(token.token);
-        return _buildTokenCard(token, isSelected);
+        return TokenCard(
+          token: token,
+          isSelected: isSelected,
+          onTap: () => _toggleTokenSelection(token.token),
+        );
       },
     );
   }
 
-  Widget _buildTokenCard(DeviceToken token, bool isSelected) {
-    final mutedStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    );
+  void _toggleTokenSelection(String token) {
+    ref.read(notificationFormProvider.notifier).toggleToken(token);
+  }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: isSelected ? 6 : 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _toggleTokenSelection(token.token),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Checkbox(
-                value: isSelected,
-                onChanged: (_) => _toggleTokenSelection(token.token),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Tooltip(
-                      message: token.token,
-                      child: Text(
-                        token.token,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        if (token.platform != null) ...[
-                          Icon(
-                            _getPlatformIcon(token.platform),
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(token.platform!, style: mutedStyle),
-                          const SizedBox(width: 12),
-                        ],
-                        if (token.userId != null) ...[
-                          Icon(
-                            Icons.person,
-                            size: 14,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 6),
-                          Text('User: ${token.userId}', style: mutedStyle),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        if (token.lastActive != null) ...[
-                          Icon(
-                            Icons.access_time,
-                            size: 14,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Last Active: ${_formatDate(token.lastActive!)}',
-                            style: mutedStyle,
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                        if (token.createdAt != null) ...[
-                          Icon(
-                            Icons.calendar_today,
-                            size: 14,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Created: ${_formatDate(token.createdAt!)}',
-                            style: mutedStyle,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              IconButton(
-                icon: const Icon(Icons.content_copy),
-                onPressed: () => _copyToken(token.token),
-                tooltip: 'Copy token',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void _toggleSelectionMode() {
+    final formState = ref.read(notificationFormProvider);
+    if (formState.selectedTokens.isEmpty) {
+      // Select all
+      for (final token in _tokens) {
+        ref.read(notificationFormProvider.notifier).toggleToken(token.token);
+      }
+    } else {
+      // Deselect all
+      ref.read(notificationFormProvider.notifier).clearSelectedTokens();
+    }
+  }
+
+  List<DeviceToken> _filterTokens(
+    List<DeviceToken> tokens,
+    String query,
+    String platform,
+  ) {
+    final q = query.trim().toLowerCase();
+    return tokens.where((t) {
+      if (platform != 'All' &&
+          (t.platform ?? '').toLowerCase() != platform.toLowerCase()) {
+        return false;
+      }
+      if (q.isEmpty) {
+        return true;
+      }
+      return (t.token.toLowerCase().contains(q) ||
+          (t.userId ?? '').toLowerCase().contains(q));
+    }).toList();
   }
 
   Future<void> _fetchTokens() async {
@@ -565,75 +494,6 @@ class _TokenListState extends ConsumerState<TokenList> {
         );
       }
     }
-  }
-
-  void _toggleTokenSelection(String token) {
-    ref.read(notificationFormProvider.notifier).toggleToken(token);
-  }
-
-  void _toggleSelectionMode() {
-    final formState = ref.read(notificationFormProvider);
-    if (formState.selectedTokens.isEmpty) {
-      // Select all
-      for (final token in _tokens) {
-        ref.read(notificationFormProvider.notifier).toggleToken(token.token);
-      }
-    } else {
-      // Deselect all
-      ref.read(notificationFormProvider.notifier).clearSelectedTokens();
-    }
-  }
-
-  void _copyToken(String token) async {
-    await Clipboard.setData(ClipboardData(text: token));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Token copied to clipboard'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  IconData _getPlatformIcon(String? platform) {
-    switch ((platform ?? '').toLowerCase()) {
-      case 'ios':
-        return Icons.phone_iphone;
-      case 'android':
-        return Icons.android;
-      case 'web':
-        return Icons.web;
-      default:
-        return Icons.device_unknown;
-    }
-  }
-
-  String _pad(int n) => n.toString().padLeft(2, '0');
-
-  String _formatDate(DateTime date) {
-    final d = '${_pad(date.day)}/${_pad(date.month)}/${date.year}';
-    final t = '${_pad(date.hour)}:${_pad(date.minute)}:${_pad(date.second)}';
-    return '$d $t';
-  }
-
-  List<DeviceToken> _filterTokens(
-    List<DeviceToken> tokens,
-    String query,
-    String platform,
-  ) {
-    final q = query.trim().toLowerCase();
-    return tokens.where((t) {
-      if (platform != 'All' &&
-          (t.platform ?? '').toLowerCase() != platform.toLowerCase()) {
-        return false;
-      }
-      if (q.isEmpty) {
-        return true;
-      }
-      return (t.token.toLowerCase().contains(q) ||
-          (t.userId ?? '').toLowerCase().contains(q));
-    }).toList();
   }
 
   void _selectAllVisibleTokens() {
