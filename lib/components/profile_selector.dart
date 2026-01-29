@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' show join;
+import 'package:path/path.dart' show join, basename;
 import 'package:path_provider/path_provider.dart';
 
 import '../models/service_account.dart';
@@ -95,8 +95,47 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
           return;
         }
 
-        // Show dialog to enter profile name
-        final name = await _showNameDialog();
+        // Build a smart suggested name from JSON or filename
+        String suggestedName = '';
+        try {
+          if (json.containsKey('project_id') &&
+              (json['project_id'] as String).isNotEmpty) {
+            suggestedName = json['project_id'] as String;
+          } else if (json.containsKey('client_email') &&
+              (json['client_email'] as String).isNotEmpty) {
+            final email = json['client_email'] as String;
+            suggestedName = email.split('@').first;
+          }
+        } catch (_) {
+          // ignore if parsing fails
+        }
+
+        if (suggestedName.isEmpty) {
+          // Fallback to filename without extension
+          suggestedName = basename(
+            finalPath,
+          ).replaceAll(RegExp(r'\.[^.]+\$'), '');
+        }
+
+        // Normalize: replace non-word chars with underscores and trim
+        suggestedName = suggestedName
+            .replaceAll(RegExp(r"[^A-Za-z0-9_\- ]+"), '')
+            .trim();
+        if (suggestedName.isEmpty) suggestedName = 'Profile';
+
+        // Ensure uniqueness by appending suffix if necessary
+        final db = ref.read(databaseServiceProvider);
+        final existing = await db.getAllServiceAccounts();
+        final existingNames = existing.map((e) => e.name).toSet();
+        String uniqueName = suggestedName;
+        int suffix = 1;
+        while (existingNames.contains(uniqueName)) {
+          uniqueName = '$suggestedName ($suffix)';
+          suffix++;
+        }
+
+        // Show dialog to enter profile name with suggestion
+        final name = await _showNameDialog(uniqueName);
         if (name == null || name.isEmpty) return;
 
         // Create service account with JSON content
@@ -110,7 +149,6 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
         );
 
         // Save to database
-        final db = ref.read(databaseServiceProvider);
         await db.createServiceAccount(serviceAccount);
 
         if (mounted) {
@@ -150,8 +188,8 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
     }
   }
 
-  Future<String?> _showNameDialog() async {
-    _nameController.clear();
+  Future<String?> _showNameDialog([String? initialName]) async {
+    _nameController.text = initialName ?? '';
     return showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
