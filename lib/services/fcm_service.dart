@@ -16,25 +16,36 @@ import '../models/service_account.dart';
 class FCMService {
   final Logger _logger = Logger();
 
+  /// Load and parse Service Account JSON (from content or file path)
+  Future<Map<String, dynamic>> _loadServiceAccountJson(
+    String serviceAccountPath, {
+    String? jsonContent,
+  }) async {
+    late final String jsonString;
+
+    // If jsonContent is provided, use it directly
+    if (jsonContent != null && jsonContent.isNotEmpty) {
+      jsonString = jsonContent;
+    } else {
+      // Fall back to reading from file path with smart recovery
+      jsonString = await _getServiceAccountContent(serviceAccountPath);
+    }
+
+    return jsonDecode(jsonString) as Map<String, dynamic>;
+  }
+
   /// Authenticate with Google API using Service Account JSON
   Future<AutoRefreshingAuthClient> authenticate(
     String serviceAccountPath, {
     String? jsonContent,
   }) async {
     try {
-      late final String jsonString;
-
-      // If jsonContent is provided, use it directly
-      if (jsonContent != null && jsonContent.isNotEmpty) {
-        jsonString = jsonContent;
-      } else {
-        // Fall back to reading from file path with smart recovery
-        jsonString = await _getServiceAccountContent(serviceAccountPath);
-      }
-
-      final credentials = ServiceAccountCredentials.fromJson(
-        jsonDecode(jsonString),
+      final json = await _loadServiceAccountJson(
+        serviceAccountPath,
+        jsonContent: jsonContent,
       );
+
+      final credentials = ServiceAccountCredentials.fromJson(json);
 
       final client = await clientViaServiceAccount(credentials, [
         'https://www.googleapis.com/auth/firebase.messaging',
@@ -104,17 +115,11 @@ class FCMService {
     String? jsonContent,
   }) async {
     try {
-      late final String jsonString;
+      final data = await _loadServiceAccountJson(
+        serviceAccountPath,
+        jsonContent: jsonContent,
+      );
 
-      // If jsonContent is provided, use it directly
-      if (jsonContent != null && jsonContent.isNotEmpty) {
-        jsonString = jsonContent;
-      } else {
-        // Fall back to reading from file path with smart recovery
-        jsonString = await _getServiceAccountContent(serviceAccountPath);
-      }
-
-      final data = jsonDecode(jsonString);
       final projectId = data['project_id'];
 
       if (projectId == null) {

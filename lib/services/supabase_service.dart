@@ -69,6 +69,22 @@ class SupabaseService {
   /// Check if Supabase is initialized
   bool get isInitialized => _client != null;
 
+  /// Parse response data into DeviceToken list
+  List<DeviceToken> _parseTokenResponse(List<dynamic> response) {
+    final tokens = <DeviceToken>[];
+    for (final item in response) {
+      try {
+        final token = DeviceToken.fromJson(item);
+        tokens.add(token);
+      } catch (e) {
+        _logger.w('Failed to parse token: $e');
+        debugPrint('Failed to parse token: $e');
+        debugPrintStack();
+      }
+    }
+    return tokens;
+  }
+
   /// Fetch all device tokens from the specified table
   Future<List<DeviceToken>> fetchDeviceTokens({
     String tableName = 'fcm_user_tokens',
@@ -88,18 +104,7 @@ class SupabaseService {
         return [];
       }
 
-      final tokens = <DeviceToken>[];
-      for (final item in response) {
-        try {
-          final token = DeviceToken.fromJson(item);
-          tokens.add(token);
-        } catch (e) {
-          _logger.w('Failed to parse token: $e');
-          debugPrint('Failed to parse token: $e');
-          debugPrintStack();
-        }
-      }
-
+      final tokens = _parseTokenResponse(response);
       _logger.i('Fetched ${tokens.length} device tokens');
       return tokens;
     } catch (e) {
@@ -130,18 +135,7 @@ class SupabaseService {
         return [];
       }
 
-      final tokens = <DeviceToken>[];
-      for (final item in response) {
-        try {
-          final token = DeviceToken.fromJson(item);
-          tokens.add(token);
-        } catch (e) {
-          _logger.w('Failed to parse token: $e');
-          debugPrint('Failed to parse token: $e');
-          debugPrintStack();
-        }
-      }
-
+      final tokens = _parseTokenResponse(response);
       _logger.i('Fetched ${tokens.length} tokens for user: $userId');
       return tokens;
     } catch (e) {
@@ -172,18 +166,7 @@ class SupabaseService {
         return [];
       }
 
-      final tokens = <DeviceToken>[];
-      for (final item in response) {
-        try {
-          final token = DeviceToken.fromJson(item);
-          tokens.add(token);
-        } catch (e) {
-          _logger.w('Failed to parse token: $e');
-          debugPrint('Failed to parse token: $e');
-          debugPrintStack();
-        }
-      }
-
+      final tokens = _parseTokenResponse(response);
       _logger.i('Fetched ${tokens.length} tokens for platform: $platform');
       return tokens;
     } catch (e) {
