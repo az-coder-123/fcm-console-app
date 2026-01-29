@@ -2,6 +2,7 @@ import 'package:fcmapp/components/supabase_config/form_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
 import 'page_header.dart';
 import 'profile_required_banner.dart';
@@ -163,6 +164,12 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
       final supabaseService = ref.read(supabaseServiceProvider);
       await supabaseService.reset();
 
+      // Clear any selected tokens that may depend on Supabase data
+      ref.read(notificationFormProvider.notifier).clearSelectedTokens();
+
+      // Invalidate the Supabase service provider to ensure a fresh instance if needed
+      ref.invalidate(supabaseServiceProvider);
+
       if (mounted) {
         setState(() {
           _urlController.clear();
@@ -174,7 +181,10 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
           _isValid = false;
         });
 
-        _showSnack('Configuration cleared', backgroundColor: Colors.green);
+        _showSnack(
+          'Configuration cleared and Supabase client disposed',
+          backgroundColor: Colors.green,
+        );
       }
     } catch (e) {
       debugPrint('Error clearing Supabase configuration: $e');
