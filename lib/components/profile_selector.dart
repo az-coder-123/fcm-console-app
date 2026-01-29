@@ -148,20 +148,26 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
           updatedAt: DateTime.now(),
         );
 
-        // Save to database
-        await db.createServiceAccount(serviceAccount);
+        // Save to database and activate the new profile
+        final newId = await db.createServiceAccount(serviceAccount);
+
+        // Set as active profile and clear any Supabase config for a fresh start
+        final storage = ref.read(storageServiceProvider);
+        await storage.setActiveServiceAccountId(newId);
+        await storage.clearSupabaseConfig();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Profile "$name" added successfully'),
+              content: Text('Profile "$name" added and activated'),
               backgroundColor: Colors.green,
             ),
           );
         }
 
-        // Refresh the list
+        // Refresh the list and active profile provider
         ref.invalidate(serviceAccountsProvider);
+        ref.invalidate(activeServiceAccountProvider);
       } catch (err) {
         debugPrint('Unable to read/parse selected file: $err');
         debugPrintStack();
