@@ -160,14 +160,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                _buildCompactNavItem(icon: Icons.account_circle, index: 0),
+                _buildCompactNavItem(
+                  icon: Icons.account_circle,
+                  index: 0,
+                  label: 'Profiles',
+                ),
                 _buildCompactNavItem(
                   icon: Icons.settings_applications,
                   index: 1,
+                  label: 'Supabase Config',
                 ),
-                _buildCompactNavItem(icon: Icons.devices, index: 2),
-                _buildCompactNavItem(icon: Icons.send, index: 3),
-                _buildCompactNavItem(icon: Icons.history, index: 4),
+                _buildCompactNavItem(
+                  icon: Icons.devices,
+                  index: 2,
+                  label: 'Device Tokens',
+                ),
+                _buildCompactNavItem(
+                  icon: Icons.send,
+                  index: 3,
+                  label: 'Send Notification',
+                ),
+                _buildCompactNavItem(
+                  icon: Icons.history,
+                  index: 4,
+                  label: 'History',
+                ),
               ],
             ),
           ),
@@ -208,7 +225,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildCompactNavItem({required IconData icon, required int index}) {
+  Widget _buildCompactNavItem({
+    required IconData icon,
+    required int index,
+    required String label,
+  }) {
     final isSelected = _selectedIndex == index;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -219,6 +240,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ? Theme.of(context).colorScheme.primary
               : Theme.of(context).colorScheme.onSurface,
         ),
+        tooltip: label,
         onPressed: () {
           setState(() {
             _selectedIndex = index;
