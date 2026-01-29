@@ -34,6 +34,45 @@ class DatabaseService {
     final Directory appDocDir = await getApplicationSupportDirectory();
     final String dbPath = join(appDocDir.path, AppConstants.databaseName);
 
+    // Dev-only: If a legacy DB exists that doesn't contain the expected
+    // `json_content` column, delete it so the app can create a clean DB.
+    // This avoids complex migrations for a new, not-yet-released project.
+    if (kDebugMode && File(dbPath).existsSync()) {
+      Database? tempDb;
+      try {
+        tempDb = await openDatabase(dbPath);
+        final List<Map<String, dynamic>> info = await tempDb.rawQuery(
+          "PRAGMA table_info(${AppConstants.tableServiceAccounts})",
+        );
+        final bool hasJson = info.any((row) => row['name'] == 'json_content');
+        await tempDb.close();
+        if (!hasJson) {
+          try {
+            await File(dbPath).delete();
+            debugPrint(
+              'Deleted legacy DB at $dbPath because json_content column was missing (dev-only)',
+            );
+          } catch (e) {
+            debugPrint('Failed to delete legacy DB: $e');
+          }
+        }
+      } catch (e) {
+        try {
+          if (tempDb != null) await tempDb.close();
+        } catch (_) {}
+        // If we cannot inspect the DB for any reason, remove it as a last-resort
+        // to ensure developers get a clean DB state.
+        try {
+          await File(dbPath).delete();
+          debugPrint(
+            'Deleted DB at $dbPath due to inspection error: $e (dev-only)',
+          );
+        } catch (e2) {
+          debugPrint('Failed to delete DB after inspection error: $e2');
+        }
+      }
+    }
+
     return await openDatabase(
       dbPath,
       version: AppConstants.databaseVersion,
@@ -49,6 +88,7 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         file_path TEXT NOT NULL,
+        json_content TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -80,18 +120,9 @@ class DatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Migration: Add json_content column to service_accounts table
-    if (oldVersion < 2) {
-      try {
-        await db.execute('''
-          ALTER TABLE ${AppConstants.tableServiceAccounts}
-          ADD COLUMN json_content TEXT
-        ''');
-      } catch (e) {
-        // Column might already exist
-        debugPrint('Migration error (can be ignored if column exists): $e');
-      }
-    }
+    // No migrations required: this project uses initial schema (version 1).
+    // Keeping this method as a no-op by design to avoid legacy migration code.
+    return;
   }
 
   // Service Account Operations
