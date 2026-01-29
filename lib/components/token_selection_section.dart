@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/device_token.dart';
 import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
+import 'token_list/token_list_service.dart';
 
 /// Token selection section for sending notifications to device tokens
 /// Enhanced UI: search, platform filters, select-all, copy and metadata
@@ -322,39 +323,10 @@ class _TokenSelectionSectionState extends ConsumerState<TokenSelectionSection> {
 
     try {
       final supabaseService = ref.read(supabaseServiceProvider);
-
-      // If the Supabase client is not initialized, try to initialize from stored config
-      if (!supabaseService.isInitialized) {
-        final storage = ref.read(storageServiceProvider);
-        final url = await storage.getSupabaseUrl();
-        final key = await storage.getSupabaseKey();
-
-        if (url != null && key != null) {
-          try {
-            await supabaseService.initialize(url, key);
-          } catch (e) {
-            debugPrint('Error initializing Supabase: $e');
-            if (mounted) {
-              setState(() {
-                _isLoadingTokens = false;
-                _tokenError = 'Failed to initialize Supabase: $e';
-              });
-            }
-            return;
-          }
-        } else {
-          if (mounted) {
-            setState(() {
-              _isLoadingTokens = false;
-              _tokenError =
-                  'Supabase not initialized. Please configure Supabase first.';
-            });
-          }
-          return;
-        }
-      }
-
-      final tokens = await supabaseService.fetchDeviceTokens();
+      final tokens = await TokenListService.fetchTokensWithInit(
+        ref,
+        supabaseService,
+      );
 
       if (mounted) {
         setState(() {
