@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.az" "\0"
-            VALUE "FileDescription", "fcmapp" "\0"
+            VALUE "FileDescription", "Firebase Console" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "fcmapp" "\0"
+            VALUE "InternalName", "firebase_console" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.az. All rights reserved." "\0"
             VALUE "OriginalFilename", "fcmapp.exe" "\0"
-            VALUE "ProductName", "fcmapp" "\0"
+            VALUE "ProductName", "Firebase Console" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

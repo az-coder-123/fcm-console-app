@@ -1,6 +1,6 @@
 {
-    "name": "fcmapp",
-    "short_name": "fcmapp",
+    "name": "Firebase Console",
+    "short_name": "Firebase Console",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
