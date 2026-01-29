@@ -7,6 +7,34 @@ A professional desktop application for managing Firebase Cloud Messaging (FCM) p
 ![Dart](https://img.shields.io/badge/Dart-3.10.7+-0175C2.svg?logo=dart)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
+## ⬇️ Quick Download
+
+### Ready-to-Use Releases
+
+Download the pre-built application for your platform and start using it immediately. No installation or build process required!
+
+| Platform | Download | Requirements |
+|----------|----------|--------------|
+| **Windows** | [![Windows Download](https://img.shields.io/badge/Download-ZIP-00A4EF?style=for-the-badge&logo=windows)](https://github.com/az-coder-123/fcm-console-app/raw/main/release/windows/FirebaseConsole.zip) | Windows 10+ (64-bit) |
+| **macOS** | [![macOS Download](https://img.shields.io/badge/Download-ZIP-000000?style=for-the-badge&logo=apple)](https://github.com/az-coder-123/fcm-console-app/raw/main/release/macos/FirebaseConsole.zip) | macOS 10.15+ |
+
+### Installation Instructions
+
+#### Windows
+1. Download the ZIP file
+2. Extract the contents to your desired location
+3. Run `FirebaseConsole.exe`
+4. If you see a SmartScreen warning, click "More info" → "Run anyway"
+
+#### macOS
+1. Download the ZIP file
+2. Extract the contents
+3. Right-click on `FirebaseConsole.app` and select "Open"
+4. Click "Open" in the security dialog (Gatekeeper)
+5. The app is now trusted and can be opened normally
+
+---
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
