@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/device_token.dart';
+import '../models/service_account.dart';
 import '../providers/providers.dart';
+import 'data_pairs_editor.dart';
+import 'notification_form_fields.dart';
+import 'notification_send_helper.dart';
+import 'token_selection_section.dart';
 
-/// Notification composer component for creating and sending FCM notifications
-/// Supports sending to device tokens or topics
+/// Main notification composer widget for creating and sending FCM notifications
+/// Orchestrates form fields, token selection, and data pairs editing
 class NotificationComposer extends ConsumerStatefulWidget {
   const NotificationComposer({super.key});
 
@@ -15,315 +19,49 @@ class NotificationComposer extends ConsumerStatefulWidget {
 }
 
 class _NotificationComposerState extends ConsumerState<NotificationComposer> {
-  final _titleController = TextEditingController();
-  final _bodyController = TextEditingController();
-  final _imageUrlController = TextEditingController();
-  final _topicController = TextEditingController();
-  final _dataKeyController = TextEditingController();
-  final _dataValueController = TextEditingController();
-
-  final Map<String, String> _dataPairs = {};
-  bool _isSending = false;
-  bool _sendToTopic = false;
-  bool _isLoadingTokens = false;
-  List<DeviceToken> _availableTokens = [];
-  String? _tokenError;
-
   @override
-  void dispose() {
-    _titleController.dispose();
-    _bodyController.dispose();
-    _imageUrlController.dispose();
-    _topicController.dispose();
-    _dataKeyController.dispose();
-    _dataValueController.dispose();
-    super.dispose();
-  }
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Listen for profile changes and reset form when profile changes
+    Future.microtask(() {
+      ref.listen(activeServiceAccountProvider, (previous, next) {
+        // Check if the profile ID changed
+        int? previousId;
+        int? currentId;
 
-  Future<void> _sendNotification() async {
-    // Validation
-    if (_titleController.text.trim().isEmpty ||
-        _bodyController.text.trim().isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fill in title and body'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (_sendToTopic && _topicController.text.trim().isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter a topic name'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    // Check if tokens are selected when sending to tokens
-    if (!_sendToTopic && _getSelectedTokens(ref).isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select at least one device token'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    var activeAccount = ref.read(activeServiceAccountProvider).value;
-    if (activeAccount == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a profile first'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    // Attempt to recover missing json_content for backward compatibility
-    final dbService = ref.read(databaseServiceProvider);
-    if (activeAccount.jsonContent == null ||
-        activeAccount.jsonContent!.isEmpty) {
-      await dbService.recoverServiceAccountContent(activeAccount.id);
-      // Refresh the provider to get updated data
-      ref.invalidate(activeServiceAccountProvider);
-      // Get the updated account
-      activeAccount = ref.read(activeServiceAccountProvider).value;
-      if (activeAccount == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to load service account'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-    }
-
-    setState(() {
-      _isSending = true;
-    });
-
-    try {
-      final fcmService = ref.read(fcmServiceProvider);
-      final db = ref.read(databaseServiceProvider);
-
-      final history = _sendToTopic
-          ? await fcmService.sendNotificationToTopic(
-              serviceAccount: activeAccount,
-              topic: _topicController.text.trim(),
-              title: _titleController.text.trim(),
-              body: _bodyController.text.trim(),
-              imageUrl: _imageUrlController.text.trim().isEmpty
-                  ? null
-                  : _imageUrlController.text.trim(),
-              data: _dataPairs,
-            )
-          : await fcmService.sendNotificationToTokens(
-              serviceAccount: activeAccount,
-              tokens: _getSelectedTokens(ref),
-              title: _titleController.text.trim(),
-              body: _bodyController.text.trim(),
-              imageUrl: _imageUrlController.text.trim().isEmpty
-                  ? null
-                  : _imageUrlController.text.trim(),
-              data: _dataPairs,
-            );
-
-      // Save to database
-      await db.createNotificationHistory(history);
-
-      if (mounted) {
-        setState(() {
-          _isSending = false;
+        previous?.whenData((acc) {
+          if (acc != null) previousId = acc.id;
         });
 
-        // Show result
-        final message = history.status == 'success'
-            ? 'Notification sent successfully!'
-            : history.status == 'partial'
-            ? 'Notification sent with some errors'
-            : 'Failed to send notification';
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: history.status == 'success'
-                ? Colors.green
-                : Colors.orange,
-          ),
-        );
-
-        // Clear form on success
-        if (history.status == 'success') {
-          _clearForm();
-        }
-
-        // Refresh history
-        ref.invalidate(notificationHistoryProvider(activeAccount.id));
-      }
-    } catch (e) {
-      debugPrint('Error sending notification: $e');
-      debugPrintStack();
-      if (mounted) {
-        setState(() {
-          _isSending = false;
+        next.whenData((acc) {
+          if (acc != null) currentId = acc.id;
         });
 
-        // Parse error message for better UX
-        String errorMessage = e.toString();
-        String? actionHint;
-
-        if (errorMessage.contains('Operation not permitted') ||
-            errorMessage.contains('Downloads')) {
-          errorMessage =
-              'Cannot access service account file. The file may be in a restricted location (Downloads folder on macOS).';
-          actionHint =
-              'Solution: Re-upload the Firebase service account JSON from Settings.';
-        } else if (errorMessage.contains('not found')) {
-          errorMessage = 'Service account file not found. Please re-upload it.';
-          actionHint =
-              'Go to Settings and upload the Firebase service account JSON again.';
+        if (previousId != null &&
+            currentId != null &&
+            previousId != currentId) {
+          // Profile changed, reset form
+          _resetForm();
         }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Error: $errorMessage'),
-                if (actionHint != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    actionHint,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    }
-  }
-
-  List<String> _getSelectedTokens(WidgetRef ref) {
-    final selectedTokens = ref.read(selectedDeviceTokensProvider);
-    return selectedTokens.toList();
-  }
-
-  Future<void> _fetchTokensForSelection() async {
-    setState(() {
-      _isLoadingTokens = true;
-      _tokenError = null;
-    });
-
-    try {
-      final supabaseService = ref.read(supabaseServiceProvider);
-
-      // If the Supabase client is not initialized, try to initialize from stored config
-      if (!supabaseService.isInitialized) {
-        final storage = ref.read(storageServiceProvider);
-        final url = await storage.getSupabaseUrl();
-        final key = await storage.getSupabaseKey();
-
-        if (url != null && key != null) {
-          try {
-            await supabaseService.initialize(url, key);
-          } catch (e) {
-            debugPrint('Error initializing Supabase: $e');
-            if (mounted) {
-              setState(() {
-                _isLoadingTokens = false;
-                _tokenError = 'Failed to initialize Supabase: $e';
-              });
-            }
-            return;
-          }
-        } else {
-          if (mounted) {
-            setState(() {
-              _isLoadingTokens = false;
-              _tokenError =
-                  'Supabase not initialized. Please configure Supabase first.';
-            });
-          }
-          return;
-        }
-      }
-
-      final tokens = await supabaseService.fetchDeviceTokens();
-
-      if (mounted) {
-        setState(() {
-          _isLoadingTokens = false;
-          _availableTokens = tokens;
-          _tokenError = null;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching tokens: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingTokens = false;
-          _tokenError = e.toString();
-        });
-      }
-    }
-  }
-
-  void _clearForm() {
-    _titleController.clear();
-    _bodyController.clear();
-    _imageUrlController.clear();
-    _topicController.clear();
-    _dataPairs.clear();
-  }
-
-  void _addDataPair() {
-    final key = _dataKeyController.text.trim();
-    final value = _dataValueController.text.trim();
-
-    if (key.isEmpty || value.isEmpty) return;
-
-    setState(() {
-      _dataPairs[key] = value;
-      _dataKeyController.clear();
-      _dataValueController.clear();
+      });
     });
   }
 
-  void _removeDataPair(String key) {
-    setState(() {
-      _dataPairs.remove(key);
-    });
+  void _resetForm() {
+    ref.read(notificationTitleProvider.notifier).state = '';
+    ref.read(notificationBodyProvider.notifier).state = '';
+    ref.read(notificationImageUrlProvider.notifier).state = '';
+    ref.read(notificationTopicProvider.notifier).state = '';
+    ref.read(notificationDataPairsProvider.notifier).state = {};
+    ref.read(notificationSendToTopicProvider.notifier).state = false;
+    ref.read(selectedDeviceTokensProvider.notifier).state = {};
   }
 
   @override
   Widget build(BuildContext context) {
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
     final selectedTokens = ref.watch(selectedDeviceTokensProvider);
+    final sendToTopic = ref.watch(notificationSendToTopicProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Send Notification'), elevation: 0),
@@ -333,419 +71,210 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Description
-              Text(
-                'Compose and send Firebase Cloud Messaging notifications.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
+              _buildDescription(context),
               const SizedBox(height: 24),
-
-              // Active profile check
-              activeAccountAsync.when(
-                data: (account) {
-                  if (account == null) {
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning, color: Colors.orange.shade800),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Please select a Firebase Service Account profile first',
-                              style: TextStyle(color: Colors.orange.shade800),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, _) => const SizedBox.shrink(),
-              ),
-
+              _buildProfileCheck(activeAccountAsync),
               if (activeAccountAsync.value != null) ...[
                 const SizedBox(height: 24),
-
-                // Selected tokens info (only visible when tokens are selected)
-                if (selectedTokens.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.check_circle,
-                              color: Colors.blue.shade800,
-                            ),
-                            const SizedBox(width: 12),
-                            Flexible(
-                              fit: FlexFit.loose,
-                              child: Text(
-                                '${selectedTokens.length} device token(s) selected for sending',
-                                style: TextStyle(
-                                  color: Colors.blue.shade800,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            ref
-                                    .read(selectedDeviceTokensProvider.notifier)
-                                    .state =
-                                <String>{};
-                          },
-                          child: const Text('Clear'),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Notification form
+                _buildSelectedTokensInfo(selectedTokens),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Send mode toggle
-                        SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment(
-                              value: false,
-                              label: Text('Device Tokens'),
-                              icon: Icon(Icons.devices),
-                            ),
-                            ButtonSegment(
-                              value: true,
-                              label: Text('Topic'),
-                              icon: Icon(Icons.topic),
-                            ),
-                          ],
-                          selected: {_sendToTopic},
-                          onSelectionChanged: (Set<bool> newSelection) {
-                            setState(() {
-                              _sendToTopic = newSelection.first;
-                            });
-                          },
-                        ),
-                        const Divider(),
-                        const SizedBox(height: 16),
-
-                        // Token selection section (only visible when sending to tokens)
-                        if (!_sendToTopic) ...[
-                          Text(
-                            'Select Device Tokens',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Fetch tokens button and error message
-                          Row(
-                            children: [
-                              ElevatedButton.icon(
-                                onPressed: _isLoadingTokens
-                                    ? null
-                                    : _fetchTokensForSelection,
-                                icon: _isLoadingTokens
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.refresh),
-                                label: Text(
-                                  _isLoadingTokens
-                                      ? 'Loading...'
-                                      : 'Fetch Available Tokens',
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              if (_availableTokens.isNotEmpty)
-                                Text(
-                                  '${_availableTokens.length} tokens available',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.outline,
-                                      ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Error message
-                          if (_tokenError != null)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.red),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.error,
-                                    color: Colors.red.shade800,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _tokenError!,
-                                      style: TextStyle(
-                                        color: Colors.red.shade800,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          // Tokens list
-                          if (_availableTokens.isNotEmpty)
-                            Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              constraints: const BoxConstraints(maxHeight: 250),
-                              child: ListView.builder(
-                                shrinkWrap: true,
-                                itemCount: _availableTokens.length,
-                                itemBuilder: (context, index) {
-                                  final token = _availableTokens[index];
-                                  final isSelected = selectedTokens.contains(
-                                    token.token,
-                                  );
-                                  return CheckboxListTile(
-                                    value: isSelected,
-                                    onChanged: (_) {
-                                      if (isSelected) {
-                                        ref
-                                            .read(
-                                              selectedDeviceTokensProvider
-                                                  .notifier,
-                                            )
-                                            .state = {
-                                          ...selectedTokens
-                                            ..remove(token.token),
-                                        };
-                                      } else {
-                                        ref
-                                            .read(
-                                              selectedDeviceTokensProvider
-                                                  .notifier,
-                                            )
-                                            .state = {
-                                          ...selectedTokens,
-                                          token.token,
-                                        };
-                                      }
-                                    },
-                                    title: Text(
-                                      token.token,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                    subtitle: token.platform != null
-                                        ? Text(
-                                            token.platform!,
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.labelSmall,
-                                          )
-                                        : null,
-                                    dense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 0,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Topic field (only visible when sending to topic)
-                        if (_sendToTopic)
-                          TextField(
-                            controller: _topicController,
-                            decoration: const InputDecoration(
-                              labelText: 'Topic Name',
-                              hintText: 'e.g., news, updates',
-                              prefixIcon: Icon(Icons.topic),
-                              border: OutlineInputBorder(),
-                            ),
-                            enabled: !_isSending,
-                          ),
-                        if (_sendToTopic) const SizedBox(height: 16),
-
-                        // Title field
-                        TextField(
-                          controller: _titleController,
-                          decoration: const InputDecoration(
-                            labelText: 'Title *',
-                            hintText: 'Notification title',
-                            prefixIcon: Icon(Icons.title),
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: !_isSending,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Body field
-                        TextField(
-                          controller: _bodyController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: 'Body *',
-                            hintText: 'Notification body',
-                            prefixIcon: Icon(Icons.description),
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: !_isSending,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Image URL field
-                        TextField(
-                          controller: _imageUrlController,
-                          decoration: const InputDecoration(
-                            labelText: 'Image URL (Optional)',
-                            hintText: 'https://example.com/image.png',
-                            prefixIcon: Icon(Icons.image),
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: !_isSending,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Data pairs section
-                        Text(
-                          'Data Pairs (Optional)',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Add data pair form
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _dataKeyController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Key',
-                                  hintText: 'data_key',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                enabled: !_isSending,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _dataValueController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Value',
-                                  hintText: 'data_value',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                enabled: !_isSending,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.add),
-                              onPressed: _isSending ? null : _addDataPair,
-                              tooltip: 'Add Data Pair',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Data pairs list
-                        if (_dataPairs.isNotEmpty)
-                          ..._dataPairs.entries.map((entry) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Chip(
-                                label: Text('${entry.key}: ${entry.value}'),
-                                onDeleted: () => _removeDataPair(entry.key),
-                                deleteIcon: const Icon(Icons.close),
-                              ),
-                            );
-                          }),
-
-                        const SizedBox(height: 24),
-
-                        // Send button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _isSending ? null : _sendNotification,
-                            icon: _isSending
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.send),
-                            label: Text(
-                              _isSending ? 'Sending...' : 'Send Notification',
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: NotificationFormFields(sendToTopic: sendToTopic),
                   ),
                 ),
+                const SizedBox(height: 24),
+                TokenSelectionSection(),
+                DataPairsEditor(),
+                _buildActionButtons(),
               ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildDescription(BuildContext context) {
+    return Text(
+      'Compose and send Firebase Cloud Messaging notifications.',
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  Widget _buildProfileCheck(AsyncValue<ServiceAccount?> activeAccountAsync) {
+    return activeAccountAsync.when(
+      data: (account) {
+        if (account == null) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange.shade800),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Please select a Firebase Service Account profile first',
+                    style: TextStyle(color: Colors.orange.shade800),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildSelectedTokensInfo(Set<String> selectedTokens) {
+    if (selectedTokens.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle, color: Colors.blue.shade800),
+              const SizedBox(width: 12),
+              Flexible(
+                fit: FlexFit.loose,
+                child: Text(
+                  '${selectedTokens.length} device token(s) selected for sending',
+                  style: TextStyle(
+                    color: Colors.blue.shade800,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(selectedDeviceTokensProvider.notifier).state =
+                  <String>{};
+            },
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _sendNotification,
+            icon: const Icon(Icons.send),
+            label: const Text('Send Notification'),
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _resetForm,
+            icon: const Icon(Icons.clear),
+            label: const Text('Clear Form'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _sendNotification() async {
+    // Validate form
+    if (!NotificationSendHelper.validateForm(context, ref)) {
+      return;
+    }
+
+    // Ensure service account is available
+    final isReady = await NotificationSendHelper.ensureServiceAccount(
+      context,
+      ref,
+    );
+    if (!isReady) {
+      return;
+    }
+
+    // Get form data
+    final title = ref.read(notificationTitleProvider).trim();
+    final body = ref.read(notificationBodyProvider).trim();
+    final imageUrl = ref.read(notificationImageUrlProvider).trim();
+    final topic = ref.read(notificationTopicProvider).trim();
+    final dataPairs = ref.read(notificationDataPairsProvider);
+    final sendToTopic = ref.read(notificationSendToTopicProvider);
+    final selectedTokens = ref.read(selectedDeviceTokensProvider);
+    final activeAccount = ref.read(activeServiceAccountProvider).value!;
+
+    setState(() {});
+
+    try {
+      final fcmService = ref.read(fcmServiceProvider);
+      final db = ref.read(databaseServiceProvider);
+
+      final history = sendToTopic
+          ? await fcmService.sendNotificationToTopic(
+              serviceAccount: activeAccount,
+              topic: topic,
+              title: title,
+              body: body,
+              imageUrl: imageUrl.isEmpty ? null : imageUrl,
+              data: dataPairs,
+            )
+          : await fcmService.sendNotificationToTokens(
+              serviceAccount: activeAccount,
+              tokens: selectedTokens.toList(),
+              title: title,
+              body: body,
+              imageUrl: imageUrl.isEmpty ? null : imageUrl,
+              data: dataPairs,
+            );
+
+      await db.createNotificationHistory(history);
+
+      if (mounted) {
+        setState(() {});
+        NotificationSendHelper.showResult(context, history.status);
+
+        if (history.status == 'success') {
+          _resetForm();
+        }
+
+        ref.invalidate(notificationHistoryProvider(activeAccount.id));
+      }
+    } catch (e) {
+      debugPrint('Error sending notification: $e');
+      debugPrintStack();
+      if (mounted) {
+        setState(() {});
+        NotificationSendHelper.showError(context, e.toString());
+      }
+    }
   }
 }

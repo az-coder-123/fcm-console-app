@@ -68,3 +68,24 @@ final errorMessageProvider = StateProvider<String?>((ref) => null);
 final selectedDeviceTokensProvider = StateProvider<Set<String>>(
   (ref) => <String>{},
 );
+// Notification Composer Persistent State
+
+/// Title input for notification
+final notificationTitleProvider = StateProvider<String>((ref) => '');
+
+/// Body input for notification
+final notificationBodyProvider = StateProvider<String>((ref) => '');
+
+/// Image URL input for notification
+final notificationImageUrlProvider = StateProvider<String>((ref) => '');
+
+/// Topic name input for sending to topic
+final notificationTopicProvider = StateProvider<String>((ref) => '');
+
+/// Data pairs (key-value pairs) for notification
+final notificationDataPairsProvider = StateProvider<Map<String, String>>(
+  (ref) => {},
+);
+
+/// Tab selection (false = Device Tokens, true = Topic)
+final notificationSendToTopicProvider = StateProvider<bool>((ref) => false);
