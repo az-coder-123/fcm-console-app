@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/service_account.dart';
 import '../providers/providers.dart';
+import 'display_utils.dart';
 import 'page_header.dart';
 
 /// Profile selector component for managing Firebase Service Accounts
@@ -502,7 +503,5 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
+  String _formatDate(DateTime date) => DisplayUtils.formatDate(date);
 }

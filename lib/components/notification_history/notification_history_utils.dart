@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../display_utils.dart';
+
 /// Utility functions for notification history display
 class NotificationHistoryUtils {
   /// Format a DateTime to a readable string (dd/mm/yyyy at HH:MM)
-  static String formatDate(DateTime date) {
-    final d = date.toLocal();
-    final day = d.day.toString().padLeft(2, '0');
-    final month = d.month.toString().padLeft(2, '0');
-    final year = d.year;
-    final hour = d.hour.toString().padLeft(2, '0');
-    final minute = d.minute.toString().padLeft(2, '0');
-    return '$day/$month/$year at $hour:$minute';
-  }
+  static String formatDate(DateTime date) => DisplayUtils.formatDateHuman(date);
 
   /// Build status icon based on notification status
   static Widget buildStatusIcon(String status) {

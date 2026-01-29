@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/device_token.dart';
 import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
+import 'display_utils.dart';
 import 'token_list/token_list_service.dart';
 
 /// Token selection section for sending notifications to device tokens
@@ -191,12 +192,15 @@ class _TokenSelectionSectionState extends ConsumerState<TokenSelectionSection> {
                     backgroundColor: Theme.of(
                       context,
                     ).colorScheme.primaryContainer,
-                    child: Icon(_getPlatformIcon(token.platform), size: 18),
+                    child: Icon(
+                      DisplayUtils.getPlatformIcon(token.platform),
+                      size: 18,
+                    ),
                   ),
                   title: Tooltip(
                     message: token.token,
                     child: Text(
-                      _shortenToken(token.token),
+                      DisplayUtils.shortenToken(token.token),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -212,10 +216,14 @@ class _TokenSelectionSectionState extends ConsumerState<TokenSelectionSection> {
                       Row(
                         children: [
                           if (token.lastActive != null)
-                            Text('Last: ${_formatDate(token.lastActive)}'),
+                            Text(
+                              'Last: ${DisplayUtils.formatDateTime(token.lastActive)}',
+                            ),
                           const SizedBox(width: 12),
                           if (token.createdAt != null)
-                            Text('Created: ${_formatDate(token.createdAt)}'),
+                            Text(
+                              'Created: ${DisplayUtils.formatDateTime(token.createdAt)}',
+                            ),
                         ],
                       ),
                     ],
@@ -289,30 +297,6 @@ class _TokenSelectionSectionState extends ConsumerState<TokenSelectionSection> {
       return (t.token.toLowerCase().contains(q) ||
           (t.userId ?? '').toLowerCase().contains(q));
     }).toList();
-  }
-
-  IconData _getPlatformIcon(String? platform) {
-    switch ((platform ?? '').toLowerCase()) {
-      case 'ios':
-        return Icons.phone_iphone;
-      case 'android':
-        return Icons.android;
-      case 'web':
-        return Icons.language;
-      default:
-        return Icons.device_unknown;
-    }
-  }
-
-  String _shortenToken(String token) {
-    if (token.length <= 36) return token;
-    return '${token.substring(0, 20)}...${token.substring(token.length - 8)}';
-  }
-
-  String _formatDate(DateTime? dt) {
-    if (dt == null) return '-';
-    final d = dt.toLocal();
-    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 
   Future<void> _fetchTokensForSelection() async {
