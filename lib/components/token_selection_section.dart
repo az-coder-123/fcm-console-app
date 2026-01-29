@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/device_token.dart';
+import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
 
 /// Token selection section for sending notifications to device tokens
@@ -20,9 +21,9 @@ class _TokenSelectionSectionState extends ConsumerState<TokenSelectionSection> {
 
   @override
   Widget build(BuildContext context) {
-    final sendToTopic = ref.watch(notificationSendToTopicProvider);
+    final formState = ref.watch(notificationFormProvider);
 
-    if (sendToTopic) {
+    if (formState.sendToTopic) {
       return const SizedBox.shrink();
     }
 
@@ -90,23 +91,16 @@ class _TokenSelectionSectionState extends ConsumerState<TokenSelectionSection> {
               itemCount: _availableTokens.length,
               itemBuilder: (context, index) {
                 final token = _availableTokens[index];
-                final selectedTokens = ref.watch(selectedDeviceTokensProvider);
-                final isSelected = selectedTokens.contains(token.token);
+                final isSelected = formState.selectedTokens.contains(
+                  token.token,
+                );
 
                 return CheckboxListTile(
                   value: isSelected,
                   onChanged: (value) {
-                    if (value == true) {
-                      ref.read(selectedDeviceTokensProvider.notifier).state = {
-                        ...selectedTokens,
-                        token.token,
-                      };
-                    } else {
-                      ref
-                          .read(selectedDeviceTokensProvider.notifier)
-                          .state = selectedTokens
-                        ..remove(token.token);
-                    }
+                    ref
+                        .read(notificationFormProvider.notifier)
+                        .toggleToken(token.token);
                   },
                   title: Text(
                     token.token,

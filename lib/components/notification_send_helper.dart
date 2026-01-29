@@ -5,36 +5,6 @@ import '../providers/providers.dart';
 
 /// Helper class for handling notification sending logic
 class NotificationSendHelper {
-  /// Validate form inputs before sending
-  static bool validateForm(BuildContext context, WidgetRef ref) {
-    final title = ref.read(notificationTitleProvider).trim();
-    final body = ref.read(notificationBodyProvider).trim();
-    final topic = ref.read(notificationTopicProvider).trim();
-    final sendToTopic = ref.read(notificationSendToTopicProvider);
-    final selectedTokens = ref.read(selectedDeviceTokensProvider);
-
-    if (title.isEmpty || body.isEmpty) {
-      _showSnackBar(context, 'Please fill in title and body', Colors.red);
-      return false;
-    }
-
-    if (sendToTopic && topic.isEmpty) {
-      _showSnackBar(context, 'Please enter a topic name', Colors.red);
-      return false;
-    }
-
-    if (!sendToTopic && selectedTokens.isEmpty) {
-      _showSnackBar(
-        context,
-        'Please select at least one device token',
-        Colors.red,
-      );
-      return false;
-    }
-
-    return true;
-  }
-
   /// Ensure service account is available and json_content is cached
   static Future<bool> ensureServiceAccount(
     BuildContext context,

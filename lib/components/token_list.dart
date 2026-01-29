@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/device_token.dart';
+import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
 
 /// Token list component for displaying device tokens from Supabase
@@ -22,7 +23,7 @@ class _TokenListState extends ConsumerState<TokenList> {
   Widget build(BuildContext context) {
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
     final supabaseService = ref.watch(supabaseServiceProvider);
-    final selectedTokens = ref.watch(selectedDeviceTokensProvider);
+    final formState = ref.watch(notificationFormProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,7 +33,9 @@ class _TokenListState extends ConsumerState<TokenList> {
           if (_tokens.isNotEmpty)
             IconButton(
               icon: Icon(
-                selectedTokens.isEmpty ? Icons.select_all : Icons.check_box,
+                formState.selectedTokens.isEmpty
+                    ? Icons.select_all
+                    : Icons.check_box,
               ),
               onPressed: _toggleSelectionMode,
               tooltip: 'Toggle Selection',
@@ -141,7 +144,7 @@ class _TokenListState extends ConsumerState<TokenList> {
                 ),
 
               // Selected tokens counter
-              if (selectedTokens.isNotEmpty)
+              if (formState.selectedTokens.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),
@@ -158,7 +161,7 @@ class _TokenListState extends ConsumerState<TokenList> {
                           Icon(Icons.check_circle, color: Colors.blue.shade800),
                           const SizedBox(width: 12),
                           Text(
-                            '${selectedTokens.length} token(s) selected',
+                            '${formState.selectedTokens.length} token(s) selected',
                             style: TextStyle(
                               color: Colors.blue.shade800,
                               fontWeight: FontWeight.bold,
@@ -169,9 +172,8 @@ class _TokenListState extends ConsumerState<TokenList> {
                       TextButton(
                         onPressed: () {
                           ref
-                                  .read(selectedDeviceTokensProvider.notifier)
-                                  .state =
-                              <String>{};
+                              .read(notificationFormProvider.notifier)
+                              .clearSelectedTokens();
                         },
                         child: const Text('Clear'),
                       ),
@@ -183,7 +185,7 @@ class _TokenListState extends ConsumerState<TokenList> {
               Expanded(
                 child: _tokens.isEmpty
                     ? _buildEmptyState(supabaseService.isInitialized)
-                    : _buildTokensList(selectedTokens),
+                    : _buildTokensList(formState.selectedTokens),
               ),
             ],
           ],
@@ -414,7 +416,7 @@ class _TokenListState extends ConsumerState<TokenList> {
         });
 
         // Clear previous selections
-        ref.read(selectedDeviceTokensProvider.notifier).state = <String>{};
+        ref.read(notificationFormProvider.notifier).clearSelectedTokens();
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -443,29 +445,19 @@ class _TokenListState extends ConsumerState<TokenList> {
   }
 
   void _toggleTokenSelection(String token) {
-    final selectedTokens = ref.read(selectedDeviceTokensProvider);
-    if (selectedTokens.contains(token)) {
-      ref.read(selectedDeviceTokensProvider.notifier).state = {
-        ...selectedTokens..remove(token),
-      };
-    } else {
-      ref.read(selectedDeviceTokensProvider.notifier).state = {
-        ...selectedTokens,
-        token,
-      };
-    }
+    ref.read(notificationFormProvider.notifier).toggleToken(token);
   }
 
   void _toggleSelectionMode() {
-    final selectedTokens = ref.read(selectedDeviceTokensProvider);
-    if (selectedTokens.isEmpty) {
+    final formState = ref.read(notificationFormProvider);
+    if (formState.selectedTokens.isEmpty) {
       // Select all
-      ref.read(selectedDeviceTokensProvider.notifier).state = _tokens
-          .map((t) => t.token)
-          .toSet();
+      for (final token in _tokens) {
+        ref.read(notificationFormProvider.notifier).toggleToken(token.token);
+      }
     } else {
       // Deselect all
-      ref.read(selectedDeviceTokensProvider.notifier).state = <String>{};
+      ref.read(notificationFormProvider.notifier).clearSelectedTokens();
     }
   }
 

@@ -1,47 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/providers.dart';
+import '../providers/notification_form_state.dart';
 
 /// Form fields for notification (title, body, image URL, topic)
-class NotificationFormFields extends ConsumerWidget {
-  final bool sendToTopic;
-
-  const NotificationFormFields({required this.sendToTopic, super.key});
+/// Uses ConsumerStatefulWidget to maintain TextEditingControllers
+class NotificationFormFields extends ConsumerStatefulWidget {
+  const NotificationFormFields({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationFormFields> createState() =>
+      _NotificationFormFieldsState();
+}
+
+class _NotificationFormFieldsState
+    extends ConsumerState<NotificationFormFields> {
+  late TextEditingController _titleController;
+  late TextEditingController _bodyController;
+  late TextEditingController _imageUrlController;
+  late TextEditingController _topicController;
+
+  @override
+  void initState() {
+    super.initState();
+    final formState = ref.read(notificationFormProvider);
+    final currentData = formState.currentModeData;
+    _titleController = TextEditingController(text: currentData.title);
+    _bodyController = TextEditingController(text: currentData.body);
+    _imageUrlController = TextEditingController(text: currentData.imageUrl);
+    _topicController = TextEditingController(text: formState.topicData.topic);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _bodyController.dispose();
+    _imageUrlController.dispose();
+    _topicController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formState = ref.watch(notificationFormProvider);
+
+    // Sync controllers with provider state (in case state changes externally)
+    _syncControllers(formState);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Send mode toggle
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(
-              value: false,
-              label: Text('Device Tokens'),
-              icon: Icon(Icons.devices),
-            ),
-            ButtonSegment(
-              value: true,
-              label: Text('Topic'),
-              icon: Icon(Icons.topic),
-            ),
-          ],
-          selected: {sendToTopic},
-          onSelectionChanged: (Set<bool> newSelection) {
-            ref.read(notificationSendToTopicProvider.notifier).state =
-                newSelection.first;
-          },
-        ),
-        const Divider(),
-        const SizedBox(height: 16),
-
         // Topic field (only visible when sending to topic)
-        if (sendToTopic)
+        if (formState.sendToTopic)
           TextField(
+            controller: _topicController,
             onChanged: (value) {
-              ref.read(notificationTopicProvider.notifier).state = value;
+              ref.read(notificationFormProvider.notifier).setTopic(value);
             },
             decoration: const InputDecoration(
               labelText: 'Topic Name',
@@ -50,12 +64,13 @@ class NotificationFormFields extends ConsumerWidget {
               border: OutlineInputBorder(),
             ),
           ),
-        if (sendToTopic) const SizedBox(height: 16),
+        if (formState.sendToTopic) const SizedBox(height: 16),
 
         // Title field
         TextField(
+          controller: _titleController,
           onChanged: (value) {
-            ref.read(notificationTitleProvider.notifier).state = value;
+            ref.read(notificationFormProvider.notifier).setTitle(value);
           },
           decoration: const InputDecoration(
             labelText: 'Title *',
@@ -68,8 +83,9 @@ class NotificationFormFields extends ConsumerWidget {
 
         // Body field
         TextField(
+          controller: _bodyController,
           onChanged: (value) {
-            ref.read(notificationBodyProvider.notifier).state = value;
+            ref.read(notificationFormProvider.notifier).setBody(value);
           },
           maxLines: 3,
           decoration: const InputDecoration(
@@ -83,8 +99,9 @@ class NotificationFormFields extends ConsumerWidget {
 
         // Image URL field
         TextField(
+          controller: _imageUrlController,
           onChanged: (value) {
-            ref.read(notificationImageUrlProvider.notifier).state = value;
+            ref.read(notificationFormProvider.notifier).setImageUrl(value);
           },
           decoration: const InputDecoration(
             labelText: 'Image URL (Optional)',
@@ -95,5 +112,22 @@ class NotificationFormFields extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  /// Sync controllers with provider state when form state changes externally
+  void _syncControllers(NotificationFormState formState) {
+    final currentData = formState.currentModeData;
+    if (_titleController.text != currentData.title) {
+      _titleController.text = currentData.title;
+    }
+    if (_bodyController.text != currentData.body) {
+      _bodyController.text = currentData.body;
+    }
+    if (_imageUrlController.text != currentData.imageUrl) {
+      _imageUrlController.text = currentData.imageUrl;
+    }
+    if (_topicController.text != formState.topicData.topic) {
+      _topicController.text = formState.topicData.topic;
+    }
   }
 }

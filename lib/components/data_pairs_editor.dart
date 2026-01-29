@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/providers.dart';
-
 /// Data pairs editor for adding custom key-value pairs to notifications
 class DataPairsEditor extends ConsumerWidget {
-  const DataPairsEditor({super.key});
+  final Map<String, String> dataPairs;
+  final Function(String, String) onAddPair;
+  final Function(String) onRemovePair;
+
+  const DataPairsEditor({
+    required this.dataPairs,
+    required this.onAddPair,
+    required this.onRemovePair,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dataPairs = ref.watch(notificationDataPairsProvider);
     final dataKeyController = TextEditingController();
     final dataValueController = TextEditingController();
 
@@ -67,7 +73,7 @@ class DataPairsEditor extends ConsumerWidget {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    _addDataPair(ref, dataKeyController, dataValueController);
+                    _addDataPair(dataKeyController, dataValueController);
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Add Pair'),
@@ -98,10 +104,7 @@ class DataPairsEditor extends ConsumerWidget {
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () {
-                      final updatedPairs = Map<String, String>.from(dataPairs);
-                      updatedPairs.remove(entry.key);
-                      ref.read(notificationDataPairsProvider.notifier).state =
-                          updatedPairs;
+                      onRemovePair(entry.key);
                     },
                   ),
                 );
@@ -126,7 +129,6 @@ class DataPairsEditor extends ConsumerWidget {
   }
 
   void _addDataPair(
-    WidgetRef ref,
     TextEditingController keyController,
     TextEditingController valueController,
   ) {
@@ -135,11 +137,7 @@ class DataPairsEditor extends ConsumerWidget {
 
     if (key.isEmpty || value.isEmpty) return;
 
-    final currentPairs = ref.read(notificationDataPairsProvider);
-    ref.read(notificationDataPairsProvider.notifier).state = {
-      ...currentPairs,
-      key: value,
-    };
+    onAddPair(key, value);
     keyController.clear();
     valueController.clear();
   }

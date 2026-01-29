@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/service_account.dart';
+import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
 import 'data_pairs_editor.dart';
 import 'notification_form_fields.dart';
@@ -9,59 +10,17 @@ import 'notification_send_helper.dart';
 import 'token_selection_section.dart';
 
 /// Main notification composer widget for creating and sending FCM notifications
-/// Orchestrates form fields, token selection, and data pairs editing
-class NotificationComposer extends ConsumerStatefulWidget {
+class NotificationComposer extends ConsumerWidget {
   const NotificationComposer({super.key});
 
   @override
-  ConsumerState<NotificationComposer> createState() =>
-      _NotificationComposerState();
-}
-
-class _NotificationComposerState extends ConsumerState<NotificationComposer> {
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Listen for profile changes and reset form when profile changes
-    Future.microtask(() {
-      ref.listen(activeServiceAccountProvider, (previous, next) {
-        // Check if the profile ID changed
-        int? previousId;
-        int? currentId;
-
-        previous?.whenData((acc) {
-          if (acc != null) previousId = acc.id;
-        });
-
-        next.whenData((acc) {
-          if (acc != null) currentId = acc.id;
-        });
-
-        if (previousId != null &&
-            currentId != null &&
-            previousId != currentId) {
-          // Profile changed, reset form
-          _resetForm();
-        }
-      });
-    });
-  }
-
-  void _resetForm() {
-    ref.read(notificationTitleProvider.notifier).state = '';
-    ref.read(notificationBodyProvider.notifier).state = '';
-    ref.read(notificationImageUrlProvider.notifier).state = '';
-    ref.read(notificationTopicProvider.notifier).state = '';
-    ref.read(notificationDataPairsProvider.notifier).state = {};
-    ref.read(notificationSendToTopicProvider.notifier).state = false;
-    ref.read(selectedDeviceTokensProvider.notifier).state = {};
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final formState = ref.watch(notificationFormProvider);
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
-    final selectedTokens = ref.watch(selectedDeviceTokensProvider);
-    final sendToTopic = ref.watch(notificationSendToTopicProvider);
+
+    // REMOVED ref.listen() - it was being called on every rebuild
+    // Form data is now permanently persisted by StateNotifierProvider
+    // Profile changes are handled separately via manual reset button or explicit call
 
     return Scaffold(
       appBar: AppBar(title: const Text('Send Notification'), elevation: 0),
@@ -76,17 +35,17 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
               _buildProfileCheck(activeAccountAsync),
               if (activeAccountAsync.value != null) ...[
                 const SizedBox(height: 24),
-                _buildSelectedTokensInfo(selectedTokens),
+                _buildSelectedTokensInfo(formState.selectedTokens, ref),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: NotificationFormFields(sendToTopic: sendToTopic),
+                    child: _buildFormFields(context, ref, formState),
                   ),
                 ),
                 const SizedBox(height: 24),
-                TokenSelectionSection(),
-                DataPairsEditor(),
-                _buildActionButtons(),
+                _buildTokenSelectionSection(formState.sendToTopic),
+                _buildDataPairsEditor(ref, formState),
+                _buildActionButtons(ref, context),
               ],
             ],
           ),
@@ -95,7 +54,7 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
     );
   }
 
-  Widget _buildDescription(BuildContext context) {
+  static Widget _buildDescription(BuildContext context) {
     return Text(
       'Compose and send Firebase Cloud Messaging notifications.',
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -104,7 +63,9 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
     );
   }
 
-  Widget _buildProfileCheck(AsyncValue<ServiceAccount?> activeAccountAsync) {
+  static Widget _buildProfileCheck(
+    AsyncValue<ServiceAccount?> activeAccountAsync,
+  ) {
     return activeAccountAsync.when(
       data: (account) {
         if (account == null) {
@@ -136,7 +97,10 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
     );
   }
 
-  Widget _buildSelectedTokensInfo(Set<String> selectedTokens) {
+  static Widget _buildSelectedTokensInfo(
+    Set<String> selectedTokens,
+    WidgetRef ref,
+  ) {
     if (selectedTokens.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -173,8 +137,7 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
           ),
           TextButton(
             onPressed: () {
-              ref.read(selectedDeviceTokensProvider.notifier).state =
-                  <String>{};
+              ref.read(notificationFormProvider.notifier).clearSelectedTokens();
             },
             child: const Text('Clear'),
           ),
@@ -183,13 +146,79 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
     );
   }
 
-  Widget _buildActionButtons() {
+  static Widget _buildFormFields(
+    BuildContext context,
+    WidgetRef ref,
+    NotificationFormState formState,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Send mode toggle
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(
+              value: false,
+              label: Text('Device Tokens'),
+              icon: Icon(Icons.devices),
+            ),
+            ButtonSegment(
+              value: true,
+              label: Text('Topic'),
+              icon: Icon(Icons.topic),
+            ),
+          ],
+          selected: {formState.sendToTopic},
+          onSelectionChanged: (Set<bool> newSelection) {
+            ref
+                .read(notificationFormProvider.notifier)
+                .setSendToTopic(newSelection.first);
+          },
+        ),
+        const Divider(),
+        const SizedBox(height: 16),
+        // Form fields are rendered by NotificationFormFields component
+        const NotificationFormFields(),
+      ],
+    );
+  }
+
+  static Widget _buildTokenSelectionSection(bool sendToTopic) {
+    if (sendToTopic) {
+      return const SizedBox.shrink();
+    }
+    return const Column(
+      children: [TokenSelectionSection(), SizedBox(height: 24)],
+    );
+  }
+
+  static Widget _buildDataPairsEditor(
+    WidgetRef ref,
+    NotificationFormState formState,
+  ) {
+    return Column(
+      children: [
+        DataPairsEditor(
+          dataPairs: formState.currentModeData.dataPairs,
+          onAddPair: (key, value) {
+            ref.read(notificationFormProvider.notifier).addDataPair(key, value);
+          },
+          onRemovePair: (key) {
+            ref.read(notificationFormProvider.notifier).removeDataPair(key);
+          },
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  static Widget _buildActionButtons(WidgetRef ref, BuildContext context) {
     return Column(
       children: [
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _sendNotification,
+            onPressed: () => _sendNotification(ref, context),
             icon: const Icon(Icons.send),
             label: const Text('Send Notification'),
           ),
@@ -198,7 +227,9 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _resetForm,
+            onPressed: () {
+              ref.read(notificationFormProvider.notifier).reset();
+            },
             icon: const Icon(Icons.clear),
             label: const Text('Clear Form'),
           ),
@@ -207,9 +238,47 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
     );
   }
 
-  Future<void> _sendNotification() async {
+  static Future<void> _sendNotification(
+    WidgetRef ref,
+    BuildContext context,
+  ) async {
+    final formState = ref.read(notificationFormProvider);
+    final currentData = formState.currentModeData;
+
     // Validate form
-    if (!NotificationSendHelper.validateForm(context, ref)) {
+    if (currentData.title.trim().isEmpty || currentData.body.trim().isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fill in title and body'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (formState.sendToTopic && formState.topicData.topic.trim().isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a topic name'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!formState.sendToTopic && formState.selectedTokens.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select at least one device token'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
 
@@ -222,48 +291,41 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
       return;
     }
 
-    // Get form data
-    final title = ref.read(notificationTitleProvider).trim();
-    final body = ref.read(notificationBodyProvider).trim();
-    final imageUrl = ref.read(notificationImageUrlProvider).trim();
-    final topic = ref.read(notificationTopicProvider).trim();
-    final dataPairs = ref.read(notificationDataPairsProvider);
-    final sendToTopic = ref.read(notificationSendToTopicProvider);
-    final selectedTokens = ref.read(selectedDeviceTokensProvider);
     final activeAccount = ref.read(activeServiceAccountProvider).value!;
-
-    setState(() {});
 
     try {
       final fcmService = ref.read(fcmServiceProvider);
       final db = ref.read(databaseServiceProvider);
 
-      final history = sendToTopic
+      final history = formState.sendToTopic
           ? await fcmService.sendNotificationToTopic(
               serviceAccount: activeAccount,
-              topic: topic,
-              title: title,
-              body: body,
-              imageUrl: imageUrl.isEmpty ? null : imageUrl,
-              data: dataPairs,
+              topic: formState.topicData.topic,
+              title: currentData.title,
+              body: currentData.body,
+              imageUrl: currentData.imageUrl.isEmpty
+                  ? null
+                  : currentData.imageUrl,
+              data: currentData.dataPairs,
             )
           : await fcmService.sendNotificationToTokens(
               serviceAccount: activeAccount,
-              tokens: selectedTokens.toList(),
-              title: title,
-              body: body,
-              imageUrl: imageUrl.isEmpty ? null : imageUrl,
-              data: dataPairs,
+              tokens: formState.selectedTokens.toList(),
+              title: currentData.title,
+              body: currentData.body,
+              imageUrl: currentData.imageUrl.isEmpty
+                  ? null
+                  : currentData.imageUrl,
+              data: currentData.dataPairs,
             );
 
       await db.createNotificationHistory(history);
 
-      if (mounted) {
-        setState(() {});
+      if (context.mounted) {
         NotificationSendHelper.showResult(context, history.status);
 
         if (history.status == 'success') {
-          _resetForm();
+          ref.read(notificationFormProvider.notifier).reset();
         }
 
         ref.invalidate(notificationHistoryProvider(activeAccount.id));
@@ -271,8 +333,7 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
     } catch (e) {
       debugPrint('Error sending notification: $e');
       debugPrintStack();
-      if (mounted) {
-        setState(() {});
+      if (context.mounted) {
         NotificationSendHelper.showError(context, e.toString());
       }
     }
