@@ -30,6 +30,103 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
     super.dispose();
   }
 
+  // Helper: read file content safely (string or bytes fallback)
+  Future<String> _readFileContent(XFile file) async {
+    try {
+      return await file.readAsString();
+    } catch (e) {
+      debugPrint('Failed to read file as string: $e');
+      final bytes = await file.readAsBytes();
+      return String.fromCharCodes(bytes);
+    }
+  }
+
+  // Helper: save a copy to application support directory; fallback to original path
+  Future<String> _saveCopyIfPossible(XFile file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final Directory appDocDir = await getApplicationSupportDirectory();
+      final path = join(
+        appDocDir.path,
+        'service_account_${DateTime.now().millisecondsSinceEpoch}.json',
+      );
+      await File(path).writeAsBytes(bytes);
+      debugPrint('Saved service account copy to $path');
+      return path;
+    } catch (e) {
+      debugPrint('Warning: Could not save service account copy: $e');
+      return file.path;
+    }
+  }
+
+  // Helper: simple heuristic to recognize a service account JSON
+  bool _looksLikeServiceAccount(Map<String, dynamic> json) {
+    return json.containsKey('project_id') ||
+        json['type'] == 'service_account' ||
+        json.containsKey('client_email');
+  }
+
+  // Helper: build a suggested profile name from JSON or filepath
+  String _suggestProfileNameFromJson(
+    Map<String, dynamic> json,
+    String finalPath,
+  ) {
+    String suggestedName = '';
+    try {
+      if (json.containsKey('project_id') &&
+          (json['project_id'] as String).isNotEmpty) {
+        suggestedName = json['project_id'] as String;
+      } else if (json.containsKey('client_email') &&
+          (json['client_email'] as String).isNotEmpty) {
+        final email = json['client_email'] as String;
+        suggestedName = email.split('@').first;
+      }
+    } catch (_) {
+      // ignore
+    }
+
+    if (suggestedName.isEmpty) {
+      suggestedName = basename(finalPath).replaceAll(RegExp(r'\.[^.]+\$'), '');
+    }
+
+    suggestedName = suggestedName
+        .replaceAll(RegExp(r"[^A-Za-z0-9_\- ]+"), '')
+        .trim();
+    if (suggestedName.isEmpty) suggestedName = 'Profile';
+    return suggestedName;
+  }
+
+  // Helper: ensure suggested name is unique by checking DB
+  Future<String> _ensureUniqueName(String suggested) async {
+    final db = ref.read(databaseServiceProvider);
+    final existing = await db.getAllServiceAccounts();
+    final existingNames = existing.map((e) => e.name).toSet();
+
+    String uniqueName = suggested;
+    int suffix = 1;
+    while (existingNames.contains(uniqueName)) {
+      uniqueName = '$suggested ($suffix)';
+      suffix++;
+    }
+    return uniqueName;
+  }
+
+  // Helper: persist the profile and activate it
+  Future<int> _saveAndActivateProfile(ServiceAccount account) async {
+    final db = ref.read(databaseServiceProvider);
+    final newId = await db.createServiceAccount(account);
+
+    final storage = ref.read(storageServiceProvider);
+    await storage.setActiveServiceAccountId(newId);
+    await storage.clearSupabaseConfig();
+
+    // Refresh providers
+    ref.invalidate(serviceAccountsProvider);
+    ref.invalidate(activeServiceAccountProvider);
+
+    return newId;
+  }
+
   Future<void> _addProfile() async {
     try {
       // Open file picker for Service Account JSON
@@ -44,44 +141,17 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
 
       if (file == null) return;
 
-      // Always read file content immediately to avoid permission issues on macOS
-      // Files in Downloads folder often have restricted access permissions
-      late String content;
+      // Track final path; helpers will read and save copy as needed
       String finalPath = file.path;
 
-      try {
-        // Try to read the content directly from the selected file
-        content = await file.readAsString();
-      } catch (e) {
-        debugPrint('Failed to read file content directly: $e');
-        // Fallback: read as bytes and convert
-        final bytes = await file.readAsBytes();
-        content = String.fromCharCodes(bytes);
-      }
+      // Read and save file content + copy
+      final content = await _readFileContent(file);
+      finalPath = await _saveCopyIfPossible(file);
 
-      // Save a copy to application support directory for future access
+      // Parse JSON and validate
       try {
-        final bytes = await file.readAsBytes();
-        final Directory appDocDir = await getApplicationSupportDirectory();
-        finalPath = join(
-          appDocDir.path,
-          'service_account_${DateTime.now().millisecondsSinceEpoch}.json',
-        );
-        await File(finalPath).writeAsBytes(bytes);
-        debugPrint('Saved service account copy to $finalPath');
-      } catch (e) {
-        debugPrint('Warning: Could not save service account copy: $e');
-        // Continue anyway, we have the content
-      }
-
-      // Validate JSON looks like a Firebase service account
-      try {
-        final Map<String, dynamic> json = jsonDecode(content);
-        final bool looksValid =
-            json.containsKey('project_id') ||
-            json['type'] == 'service_account' ||
-            json.containsKey('client_email');
-        if (!looksValid) {
+        final Map<String, dynamic> parsed = jsonDecode(content);
+        if (!_looksLikeServiceAccount(parsed)) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -95,44 +165,9 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
           return;
         }
 
-        // Build a smart suggested name from JSON or filename
-        String suggestedName = '';
-        try {
-          if (json.containsKey('project_id') &&
-              (json['project_id'] as String).isNotEmpty) {
-            suggestedName = json['project_id'] as String;
-          } else if (json.containsKey('client_email') &&
-              (json['client_email'] as String).isNotEmpty) {
-            final email = json['client_email'] as String;
-            suggestedName = email.split('@').first;
-          }
-        } catch (_) {
-          // ignore if parsing fails
-        }
-
-        if (suggestedName.isEmpty) {
-          // Fallback to filename without extension
-          suggestedName = basename(
-            finalPath,
-          ).replaceAll(RegExp(r'\.[^.]+\$'), '');
-        }
-
-        // Normalize: replace non-word chars with underscores and trim
-        suggestedName = suggestedName
-            .replaceAll(RegExp(r"[^A-Za-z0-9_\- ]+"), '')
-            .trim();
-        if (suggestedName.isEmpty) suggestedName = 'Profile';
-
-        // Ensure uniqueness by appending suffix if necessary
-        final db = ref.read(databaseServiceProvider);
-        final existing = await db.getAllServiceAccounts();
-        final existingNames = existing.map((e) => e.name).toSet();
-        String uniqueName = suggestedName;
-        int suffix = 1;
-        while (existingNames.contains(uniqueName)) {
-          uniqueName = '$suggestedName ($suffix)';
-          suffix++;
-        }
+        // Suggest and ensure unique name
+        final suggested = _suggestProfileNameFromJson(parsed, finalPath);
+        final uniqueName = await _ensureUniqueName(suggested);
 
         // Show dialog to enter profile name with suggestion
         final name = await _showNameDialog(uniqueName);
@@ -149,12 +184,7 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
         );
 
         // Save to database and activate the new profile
-        final newId = await db.createServiceAccount(serviceAccount);
-
-        // Set as active profile and clear any Supabase config for a fresh start
-        final storage = ref.read(storageServiceProvider);
-        await storage.setActiveServiceAccountId(newId);
-        await storage.clearSupabaseConfig();
+        await _saveAndActivateProfile(serviceAccount);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -164,10 +194,6 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
             ),
           );
         }
-
-        // Refresh the list and active profile provider
-        ref.invalidate(serviceAccountsProvider);
-        ref.invalidate(activeServiceAccountProvider);
       } catch (err) {
         debugPrint('Unable to read/parse selected file: $err');
         debugPrintStack();
