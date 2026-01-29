@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
+import 'page_header.dart';
 
 /// Supabase configuration component
 /// Allows users to configure Supabase connection for the active profile
@@ -261,18 +262,17 @@ class _SupabaseConfigState extends ConsumerState<SupabaseConfig> {
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Supabase Configuration'), elevation: 0),
+      appBar: AppBar(elevation: 0, toolbarHeight: 0),
       body: Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Description
-            Text(
-              'Configure Supabase connection to fetch device tokens for the active profile.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            // Header
+            const PageHeader(
+              title: 'Supabase Configuration',
+              subtitle:
+                  'Configure Supabase connection to fetch device tokens for the active profile.',
             ),
             const SizedBox(height: 24),
 

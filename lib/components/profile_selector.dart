@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/service_account.dart';
 import '../providers/providers.dart';
+import 'page_header.dart';
 
 /// Profile selector component for managing Firebase Service Accounts
 /// Allows users to add, select, and delete service account profiles
@@ -276,21 +277,17 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Firebase Service Account Profiles'),
-        elevation: 0,
-      ),
+      appBar: AppBar(elevation: 0, toolbarHeight: 0),
       body: Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Description
-            Text(
-              'Manage your Firebase Service Account profiles. Each profile represents a Firebase project.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            // Header
+            const PageHeader(
+              title: 'Firebase Service Account Profiles',
+              subtitle:
+                  'Manage your Firebase Service Account profiles. Each profile represents a Firebase project.',
             ),
             const SizedBox(height: 24),
 

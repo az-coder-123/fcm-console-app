@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import 'notification_history/notification_history_card.dart';
+import 'page_header.dart';
 
 /// Notification history component for viewing sent notifications
 /// Displays a list of all sent notifications with their status
@@ -21,18 +22,17 @@ class _NotificationHistoryViewState
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notification History'), elevation: 0),
+      appBar: AppBar(elevation: 0, toolbarHeight: 0),
       body: Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Description
-            Text(
-              'View history of sent notifications for the active profile.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            // Header
+            const PageHeader(
+              title: 'Notification History',
+              subtitle:
+                  'View history of sent notifications for the active profile.',
             ),
             const SizedBox(height: 24),
 

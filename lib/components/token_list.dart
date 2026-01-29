@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/device_token.dart';
 import '../providers/notification_form_state.dart';
 import '../providers/providers.dart';
+import 'page_header.dart';
 import 'token_list/error_message.dart';
 import 'token_list/info_bar.dart';
 import 'token_list/search_filters.dart';
@@ -49,8 +50,8 @@ class _TokenListState extends ConsumerState<TokenList> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Device Tokens'),
         elevation: 0,
+        toolbarHeight: 0,
         actions: [
           if (_tokens.isNotEmpty)
             IconButton(
@@ -69,12 +70,11 @@ class _TokenListState extends ConsumerState<TokenList> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Description
-            Text(
-              'View and select device tokens from your Supabase database.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            // Header
+            const PageHeader(
+              title: 'Device Tokens',
+              subtitle:
+                  'View and select device tokens from your Supabase database.',
             ),
             const SizedBox(height: 24),
 

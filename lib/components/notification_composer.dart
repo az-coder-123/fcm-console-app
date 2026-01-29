@@ -7,6 +7,7 @@ import '../providers/providers.dart';
 import 'data_pairs_editor.dart';
 import 'notification_form_fields.dart';
 import 'notification_send_helper.dart';
+import 'page_header.dart';
 import 'token_selection_section.dart';
 
 /// Main notification composer widget for creating and sending FCM notifications
@@ -19,14 +20,19 @@ class NotificationComposer extends ConsumerWidget {
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Send Notification'), elevation: 0),
+      appBar: AppBar(elevation: 0, toolbarHeight: 0),
       body: Container(
         padding: const EdgeInsets.all(24),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDescription(context),
+              const PageHeader(
+                title: 'Send Notification',
+                subtitle:
+                    'Compose and send Firebase Cloud Messaging notifications.',
+              ),
+              const SizedBox(height: 8),
               _buildProfileCheck(activeAccountAsync),
               if (activeAccountAsync.value != null) ...[
                 const SizedBox(height: 24),
@@ -45,15 +51,6 @@ class NotificationComposer extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  static Widget _buildDescription(BuildContext context) {
-    return Text(
-      'Compose and send Firebase Cloud Messaging notifications.',
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
   }
