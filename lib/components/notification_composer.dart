@@ -182,9 +182,7 @@ class NotificationComposer extends ConsumerWidget {
     if (sendToTopic) {
       return const SizedBox.shrink();
     }
-    return const Column(
-      children: [TokenSelectionSection(), SizedBox(height: 24)],
-    );
+    return const TokenSelectionSection();
   }
 
   static Widget _buildDataPairsEditor(
