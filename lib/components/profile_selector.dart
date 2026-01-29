@@ -42,9 +42,23 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
 
       if (file == null) return;
 
-      // If file.path is empty or file doesn't exist, save the picked bytes to a local file
+      // Always read file content immediately to avoid permission issues on macOS
+      // Files in Downloads folder often have restricted access permissions
+      late String content;
       String finalPath = file.path;
-      if (finalPath.isEmpty || !await File(finalPath).exists()) {
+
+      try {
+        // Try to read the content directly from the selected file
+        content = await file.readAsString();
+      } catch (e) {
+        debugPrint('Failed to read file content directly: $e');
+        // Fallback: read as bytes and convert
+        final bytes = await file.readAsBytes();
+        content = String.fromCharCodes(bytes);
+      }
+
+      // Save a copy to application support directory for future access
+      try {
         final bytes = await file.readAsBytes();
         final Directory appDocDir = await getApplicationSupportDirectory();
         finalPath = join(
@@ -52,12 +66,14 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
           'service_account_${DateTime.now().millisecondsSinceEpoch}.json',
         );
         await File(finalPath).writeAsBytes(bytes);
-        debugPrint('Saved service account to $finalPath');
+        debugPrint('Saved service account copy to $finalPath');
+      } catch (e) {
+        debugPrint('Warning: Could not save service account copy: $e');
+        // Continue anyway, we have the content
       }
 
       // Validate JSON looks like a Firebase service account
       try {
-        final content = await File(finalPath).readAsString();
         final Map<String, dynamic> json = jsonDecode(content);
         final bool looksValid =
             json.containsKey('project_id') ||
@@ -76,6 +92,36 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
           }
           return;
         }
+
+        // Show dialog to enter profile name
+        final name = await _showNameDialog();
+        if (name == null || name.isEmpty) return;
+
+        // Create service account with JSON content
+        final serviceAccount = ServiceAccount(
+          id: 0, // Will be auto-generated
+          name: name,
+          filePath: finalPath,
+          jsonContent: content, // Store JSON content directly
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        // Save to database
+        final db = ref.read(databaseServiceProvider);
+        await db.createServiceAccount(serviceAccount);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Profile "$name" added successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        // Refresh the list
+        ref.invalidate(serviceAccountsProvider);
       } catch (err) {
         debugPrint('Unable to read/parse selected file: $err');
         debugPrintStack();
@@ -89,35 +135,6 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
         }
         return;
       }
-
-      // Show dialog to enter profile name
-      final name = await _showNameDialog();
-      if (name == null || name.isEmpty) return;
-
-      // Create service account
-      final serviceAccount = ServiceAccount(
-        id: 0, // Will be auto-generated
-        name: name,
-        filePath: finalPath,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      // Save to database
-      final db = ref.read(databaseServiceProvider);
-      await db.createServiceAccount(serviceAccount);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Profile "$name" added successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
-      // Refresh the list
-      ref.invalidate(serviceAccountsProvider);
     } catch (e, st) {
       debugPrint('Error adding profile: $e\n$st');
       if (mounted) {

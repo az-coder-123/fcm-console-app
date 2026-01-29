@@ -17,12 +17,12 @@ class _TokenListState extends ConsumerState<TokenList> {
   List<DeviceToken> _tokens = [];
   bool _isLoading = false;
   String? _errorMessage;
-  Set<String> _selectedTokens = {};
 
   @override
   Widget build(BuildContext context) {
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
     final supabaseService = ref.watch(supabaseServiceProvider);
+    final selectedTokens = ref.watch(selectedDeviceTokensProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,7 +32,7 @@ class _TokenListState extends ConsumerState<TokenList> {
           if (_tokens.isNotEmpty)
             IconButton(
               icon: Icon(
-                _selectedTokens.isEmpty ? Icons.select_all : Icons.check_box,
+                selectedTokens.isEmpty ? Icons.select_all : Icons.check_box,
               ),
               onPressed: _toggleSelectionMode,
               tooltip: 'Toggle Selection',
@@ -141,7 +141,7 @@ class _TokenListState extends ConsumerState<TokenList> {
                 ),
 
               // Selected tokens counter
-              if (_selectedTokens.isNotEmpty)
+              if (selectedTokens.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),
@@ -158,7 +158,7 @@ class _TokenListState extends ConsumerState<TokenList> {
                           Icon(Icons.check_circle, color: Colors.blue.shade800),
                           const SizedBox(width: 12),
                           Text(
-                            '${_selectedTokens.length} token(s) selected',
+                            '${selectedTokens.length} token(s) selected',
                             style: TextStyle(
                               color: Colors.blue.shade800,
                               fontWeight: FontWeight.bold,
@@ -168,9 +168,10 @@ class _TokenListState extends ConsumerState<TokenList> {
                       ),
                       TextButton(
                         onPressed: () {
-                          setState(() {
-                            _selectedTokens.clear();
-                          });
+                          ref
+                                  .read(selectedDeviceTokensProvider.notifier)
+                                  .state =
+                              <String>{};
                         },
                         child: const Text('Clear'),
                       ),
@@ -182,7 +183,7 @@ class _TokenListState extends ConsumerState<TokenList> {
               Expanded(
                 child: _tokens.isEmpty
                     ? _buildEmptyState(supabaseService.isInitialized)
-                    : _buildTokensList(),
+                    : _buildTokensList(selectedTokens),
               ),
             ],
           ],
@@ -221,12 +222,12 @@ class _TokenListState extends ConsumerState<TokenList> {
     );
   }
 
-  Widget _buildTokensList() {
+  Widget _buildTokensList(Set<String> selectedTokens) {
     return ListView.builder(
       itemCount: _tokens.length,
       itemBuilder: (context, index) {
         final token = _tokens[index];
-        final isSelected = _selectedTokens.contains(token.token);
+        final isSelected = selectedTokens.contains(token.token);
         return _buildTokenCard(token, isSelected);
       },
     );
@@ -409,9 +410,11 @@ class _TokenListState extends ConsumerState<TokenList> {
         setState(() {
           _isLoading = false;
           _tokens = tokens;
-          _selectedTokens.clear();
           _errorMessage = null;
         });
+
+        // Clear previous selections
+        ref.read(selectedDeviceTokensProvider.notifier).state = <String>{};
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -440,25 +443,30 @@ class _TokenListState extends ConsumerState<TokenList> {
   }
 
   void _toggleTokenSelection(String token) {
-    setState(() {
-      if (_selectedTokens.contains(token)) {
-        _selectedTokens.remove(token);
-      } else {
-        _selectedTokens.add(token);
-      }
-    });
+    final selectedTokens = ref.read(selectedDeviceTokensProvider);
+    if (selectedTokens.contains(token)) {
+      ref.read(selectedDeviceTokensProvider.notifier).state = {
+        ...selectedTokens..remove(token),
+      };
+    } else {
+      ref.read(selectedDeviceTokensProvider.notifier).state = {
+        ...selectedTokens,
+        token,
+      };
+    }
   }
 
   void _toggleSelectionMode() {
-    setState(() {
-      if (_selectedTokens.isEmpty) {
-        // Select all
-        _selectedTokens = _tokens.map((t) => t.token).toSet();
-      } else {
-        // Deselect all
-        _selectedTokens.clear();
-      }
-    });
+    final selectedTokens = ref.read(selectedDeviceTokensProvider);
+    if (selectedTokens.isEmpty) {
+      // Select all
+      ref.read(selectedDeviceTokensProvider.notifier).state = _tokens
+          .map((t) => t.token)
+          .toSet();
+    } else {
+      // Deselect all
+      ref.read(selectedDeviceTokensProvider.notifier).state = <String>{};
+    }
   }
 
   void _copyToken(String token) {

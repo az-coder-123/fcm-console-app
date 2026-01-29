@@ -9,6 +9,8 @@ class ServiceAccount {
   final int id;
   final String name;
   final String filePath;
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  final String? jsonContent;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -16,6 +18,7 @@ class ServiceAccount {
     required this.id,
     required this.name,
     required this.filePath,
+    this.jsonContent,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -29,6 +32,7 @@ class ServiceAccount {
     int? id,
     String? name,
     String? filePath,
+    String? jsonContent,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -36,6 +40,7 @@ class ServiceAccount {
       id: id ?? this.id,
       name: name ?? this.name,
       filePath: filePath ?? this.filePath,
+      jsonContent: jsonContent ?? this.jsonContent,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

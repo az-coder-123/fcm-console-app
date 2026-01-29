@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -36,6 +38,7 @@ class DatabaseService {
       dbPath,
       version: AppConstants.databaseVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -76,6 +79,21 @@ class DatabaseService {
     ''');
   }
 
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Migration: Add json_content column to service_accounts table
+    if (oldVersion < 2) {
+      try {
+        await db.execute('''
+          ALTER TABLE ${AppConstants.tableServiceAccounts}
+          ADD COLUMN json_content TEXT
+        ''');
+      } catch (e) {
+        // Column might already exist
+        debugPrint('Migration error (can be ignored if column exists): $e');
+      }
+    }
+  }
+
   // Service Account Operations
 
   Future<int> createServiceAccount(ServiceAccount account) async {
@@ -83,6 +101,7 @@ class DatabaseService {
     return await db.insert(AppConstants.tableServiceAccounts, {
       'name': account.name,
       'file_path': account.filePath,
+      'json_content': account.jsonContent,
       'created_at': account.createdAt.millisecondsSinceEpoch,
       'updated_at': account.updatedAt.millisecondsSinceEpoch,
     });
@@ -100,6 +119,7 @@ class DatabaseService {
         id: maps[i]['id'],
         name: maps[i]['name'],
         filePath: maps[i]['file_path'],
+        jsonContent: maps[i]['json_content'],
         createdAt: DateTime.fromMillisecondsSinceEpoch(maps[i]['created_at']),
         updatedAt: DateTime.fromMillisecondsSinceEpoch(maps[i]['updated_at']),
       );
@@ -121,6 +141,7 @@ class DatabaseService {
       id: maps[0]['id'],
       name: maps[0]['name'],
       filePath: maps[0]['file_path'],
+      jsonContent: maps[0]['json_content'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(maps[0]['created_at']),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(maps[0]['updated_at']),
     );
@@ -133,6 +154,7 @@ class DatabaseService {
       {
         'name': account.name,
         'file_path': account.filePath,
+        'json_content': account.jsonContent,
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       },
       where: 'id = ?',
@@ -242,6 +264,60 @@ class DatabaseService {
   List<String> _decodeList(String encoded) {
     if (encoded.isEmpty) return [];
     return encoded.split(',');
+  }
+
+  /// Recover service account content for records with missing json_content
+  /// This handles backward compatibility for service accounts created before the json_content column
+  Future<void> recoverServiceAccountContent(int id) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        AppConstants.tableServiceAccounts,
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+
+      if (maps.isEmpty) {
+        debugPrint('Service account not found: $id');
+        return;
+      }
+
+      final filePath = maps[0]['file_path'];
+      final existingContent = maps[0]['json_content'];
+
+      // If content already exists, skip recovery
+      if (existingContent != null && (existingContent as String).isNotEmpty) {
+        debugPrint('Service account already has json_content: $id');
+        return;
+      }
+
+      // Try to read from the stored file path
+      final file = File(filePath);
+      if (await file.exists()) {
+        try {
+          final content = await file.readAsString();
+          // Validate it's valid JSON
+          jsonDecode(content);
+
+          // Save the content to the database
+          await db.update(
+            AppConstants.tableServiceAccounts,
+            {'json_content': content},
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+
+          debugPrint('Recovered json_content for service account: $id');
+        } catch (e) {
+          debugPrint('Failed to recover content from file: $e');
+        }
+      } else {
+        debugPrint('Service account file not found: $filePath');
+      }
+    } catch (e) {
+      debugPrint('Error recovering service account content: $e');
+    }
   }
 
   Future<void> close() async {

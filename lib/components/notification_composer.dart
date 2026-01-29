@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/device_token.dart';
 import '../providers/providers.dart';
 
 /// Notification composer component for creating and sending FCM notifications
@@ -24,6 +25,9 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
   final Map<String, String> _dataPairs = {};
   bool _isSending = false;
   bool _sendToTopic = false;
+  bool _isLoadingTokens = false;
+  List<DeviceToken> _availableTokens = [];
+  String? _tokenError;
 
   @override
   void dispose() {
@@ -63,7 +67,20 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
       return;
     }
 
-    final activeAccount = ref.read(activeServiceAccountProvider).value;
+    // Check if tokens are selected when sending to tokens
+    if (!_sendToTopic && _getSelectedTokens(ref).isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select at least one device token'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    var activeAccount = ref.read(activeServiceAccountProvider).value;
     if (activeAccount == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -74,6 +91,28 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
         );
       }
       return;
+    }
+
+    // Attempt to recover missing json_content for backward compatibility
+    final dbService = ref.read(databaseServiceProvider);
+    if (activeAccount.jsonContent == null ||
+        activeAccount.jsonContent!.isEmpty) {
+      await dbService.recoverServiceAccountContent(activeAccount.id);
+      // Refresh the provider to get updated data
+      ref.invalidate(activeServiceAccountProvider);
+      // Get the updated account
+      activeAccount = ref.read(activeServiceAccountProvider).value;
+      if (activeAccount == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to load service account'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
     }
 
     setState(() {
@@ -97,7 +136,7 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
             )
           : await fcmService.sendNotificationToTokens(
               serviceAccount: activeAccount,
-              tokens: _getSelectedTokens(),
+              tokens: _getSelectedTokens(ref),
               title: _titleController.text.trim(),
               body: _bodyController.text.trim(),
               imageUrl: _imageUrlController.text.trim().isEmpty
@@ -146,20 +185,112 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
           _isSending = false;
         });
 
+        // Parse error message for better UX
+        String errorMessage = e.toString();
+        String? actionHint;
+
+        if (errorMessage.contains('Operation not permitted') ||
+            errorMessage.contains('Downloads')) {
+          errorMessage =
+              'Cannot access service account file. The file may be in a restricted location (Downloads folder on macOS).';
+          actionHint =
+              'Solution: Re-upload the Firebase service account JSON from Settings.';
+        } else if (errorMessage.contains('not found')) {
+          errorMessage = 'Service account file not found. Please re-upload it.';
+          actionHint =
+              'Go to Settings and upload the Firebase service account JSON again.';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error sending notification: $e'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Error: $errorMessage'),
+                if (actionHint != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    actionHint,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
+            ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
     }
   }
 
-  List<String> _getSelectedTokens() {
-    // In a real implementation, this would get selected tokens from TokenList
-    // For now, return empty list as placeholder
-    return [];
+  List<String> _getSelectedTokens(WidgetRef ref) {
+    final selectedTokens = ref.read(selectedDeviceTokensProvider);
+    return selectedTokens.toList();
+  }
+
+  Future<void> _fetchTokensForSelection() async {
+    setState(() {
+      _isLoadingTokens = true;
+      _tokenError = null;
+    });
+
+    try {
+      final supabaseService = ref.read(supabaseServiceProvider);
+
+      // If the Supabase client is not initialized, try to initialize from stored config
+      if (!supabaseService.isInitialized) {
+        final storage = ref.read(storageServiceProvider);
+        final url = await storage.getSupabaseUrl();
+        final key = await storage.getSupabaseKey();
+
+        if (url != null && key != null) {
+          try {
+            await supabaseService.initialize(url, key);
+          } catch (e) {
+            debugPrint('Error initializing Supabase: $e');
+            if (mounted) {
+              setState(() {
+                _isLoadingTokens = false;
+                _tokenError = 'Failed to initialize Supabase: $e';
+              });
+            }
+            return;
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _isLoadingTokens = false;
+              _tokenError =
+                  'Supabase not initialized. Please configure Supabase first.';
+            });
+          }
+          return;
+        }
+      }
+
+      final tokens = await supabaseService.fetchDeviceTokens();
+
+      if (mounted) {
+        setState(() {
+          _isLoadingTokens = false;
+          _availableTokens = tokens;
+          _tokenError = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching tokens: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingTokens = false;
+          _tokenError = e.toString();
+        });
+      }
+    }
   }
 
   void _clearForm() {
@@ -192,6 +323,7 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
   @override
   Widget build(BuildContext context) {
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
+    final selectedTokens = ref.watch(selectedDeviceTokensProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Send Notification'), elevation: 0),
@@ -244,6 +376,54 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
               if (activeAccountAsync.value != null) ...[
                 const SizedBox(height: 24),
 
+                // Selected tokens info (only visible when tokens are selected)
+                if (selectedTokens.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color: Colors.blue.shade800,
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: Text(
+                                '${selectedTokens.length} device token(s) selected for sending',
+                                style: TextStyle(
+                                  color: Colors.blue.shade800,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            ref
+                                    .read(selectedDeviceTokensProvider.notifier)
+                                    .state =
+                                <String>{};
+                          },
+                          child: const Text('Clear'),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Notification form
                 Card(
                   child: Padding(
@@ -274,6 +454,152 @@ class _NotificationComposerState extends ConsumerState<NotificationComposer> {
                         ),
                         const Divider(),
                         const SizedBox(height: 16),
+
+                        // Token selection section (only visible when sending to tokens)
+                        if (!_sendToTopic) ...[
+                          Text(
+                            'Select Device Tokens',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Fetch tokens button and error message
+                          Row(
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: _isLoadingTokens
+                                    ? null
+                                    : _fetchTokensForSelection,
+                                icon: _isLoadingTokens
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.refresh),
+                                label: Text(
+                                  _isLoadingTokens
+                                      ? 'Loading...'
+                                      : 'Fetch Available Tokens',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              if (_availableTokens.isNotEmpty)
+                                Text(
+                                  '${_availableTokens.length} tokens available',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.outline,
+                                      ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Error message
+                          if (_tokenError != null)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.red),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.error,
+                                    color: Colors.red.shade800,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _tokenError!,
+                                      style: TextStyle(
+                                        color: Colors.red.shade800,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                          // Tokens list
+                          if (_availableTokens.isNotEmpty)
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              constraints: const BoxConstraints(maxHeight: 250),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: _availableTokens.length,
+                                itemBuilder: (context, index) {
+                                  final token = _availableTokens[index];
+                                  final isSelected = selectedTokens.contains(
+                                    token.token,
+                                  );
+                                  return CheckboxListTile(
+                                    value: isSelected,
+                                    onChanged: (_) {
+                                      if (isSelected) {
+                                        ref
+                                            .read(
+                                              selectedDeviceTokensProvider
+                                                  .notifier,
+                                            )
+                                            .state = {
+                                          ...selectedTokens
+                                            ..remove(token.token),
+                                        };
+                                      } else {
+                                        ref
+                                            .read(
+                                              selectedDeviceTokensProvider
+                                                  .notifier,
+                                            )
+                                            .state = {
+                                          ...selectedTokens,
+                                          token.token,
+                                        };
+                                      }
+                                    },
+                                    title: Text(
+                                      token.token,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                    subtitle: token.platform != null
+                                        ? Text(
+                                            token.platform!,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.labelSmall,
+                                          )
+                                        : null,
+                                    dense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 0,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                          const SizedBox(height: 16),
+                        ],
 
                         // Topic field (only visible when sending to topic)
                         if (_sendToTopic)

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../core/constants.dart';
 import '../models/notification_history.dart';
@@ -17,12 +18,23 @@ class FCMService {
 
   /// Authenticate with Google API using Service Account JSON
   Future<AutoRefreshingAuthClient> authenticate(
-    String serviceAccountPath,
-  ) async {
+    String serviceAccountPath, {
+    String? jsonContent,
+  }) async {
     try {
-      final file = File(serviceAccountPath);
-      final jsonString = await file.readAsString();
-      final credentials = ServiceAccountCredentials.fromJson(jsonString);
+      late final String jsonString;
+
+      // If jsonContent is provided, use it directly
+      if (jsonContent != null && jsonContent.isNotEmpty) {
+        jsonString = jsonContent;
+      } else {
+        // Fall back to reading from file path with smart recovery
+        jsonString = await _getServiceAccountContent(serviceAccountPath);
+      }
+
+      final credentials = ServiceAccountCredentials.fromJson(
+        jsonDecode(jsonString),
+      );
 
       final client = await clientViaServiceAccount(credentials, [
         'https://www.googleapis.com/auth/firebase.messaging',
@@ -38,11 +50,70 @@ class FCMService {
     }
   }
 
-  /// Extract project ID from Service Account JSON
-  Future<String> getProjectId(String serviceAccountPath) async {
+  /// Get service account content with fallback strategies
+  Future<String> _getServiceAccountContent(String serviceAccountPath) async {
+    final file = File(serviceAccountPath);
+
+    // Strategy 1: Try to read from the original path
+    if (await file.exists()) {
+      try {
+        return await file.readAsString();
+      } catch (e) {
+        _logger.w('Failed to read from original path, trying alternatives: $e');
+      }
+    }
+
+    // Strategy 2: Try to find a backup copy in app support directory
     try {
-      final file = File(serviceAccountPath);
-      final jsonString = await file.readAsString();
+      final appDocDir = await getApplicationSupportDirectory();
+      final List<FileSystemEntity> files = appDocDir.listSync(recursive: false);
+
+      // Look for service account backup files
+      for (final entity in files) {
+        if (entity is File && entity.path.contains('service_account_')) {
+          try {
+            final content = await entity.readAsString();
+            // Validate it looks like a service account
+            final json = jsonDecode(content);
+            if (json is Map && json.containsKey('project_id')) {
+              _logger.i(
+                'Successfully recovered service account from backup: ${entity.path}',
+              );
+              return content;
+            }
+          } catch (e) {
+            _logger.w('Backup file is invalid: ${entity.path}');
+          }
+        }
+      }
+    } catch (e) {
+      _logger.w('Failed to search for backup files: $e');
+    }
+
+    // Strategy 3: All strategies failed
+    throw FileSystemException(
+      'Cannot access service account file. This usually happens when the file is in the Downloads folder on macOS. '
+      'Please re-upload the service account JSON from Settings to fix this issue.',
+      serviceAccountPath,
+    );
+  }
+
+  /// Extract project ID from Service Account JSON
+  Future<String> getProjectId(
+    String serviceAccountPath, {
+    String? jsonContent,
+  }) async {
+    try {
+      late final String jsonString;
+
+      // If jsonContent is provided, use it directly
+      if (jsonContent != null && jsonContent.isNotEmpty) {
+        jsonString = jsonContent;
+      } else {
+        // Fall back to reading from file path with smart recovery
+        jsonString = await _getServiceAccountContent(serviceAccountPath);
+      }
+
       final data = jsonDecode(jsonString);
       final projectId = data['project_id'];
 
@@ -72,8 +143,14 @@ class FCMService {
     String? errorMessage;
 
     try {
-      final client = await authenticate(serviceAccount.filePath);
-      final projectId = await getProjectId(serviceAccount.filePath);
+      final client = await authenticate(
+        serviceAccount.filePath,
+        jsonContent: serviceAccount.jsonContent,
+      );
+      final projectId = await getProjectId(
+        serviceAccount.filePath,
+        jsonContent: serviceAccount.jsonContent,
+      );
 
       final results = <String, dynamic>{};
       int successCount = 0;
@@ -173,8 +250,14 @@ class FCMService {
     String? errorMessage;
 
     try {
-      final client = await authenticate(serviceAccount.filePath);
-      final projectId = await getProjectId(serviceAccount.filePath);
+      final client = await authenticate(
+        serviceAccount.filePath,
+        jsonContent: serviceAccount.jsonContent,
+      );
+      final projectId = await getProjectId(
+        serviceAccount.filePath,
+        jsonContent: serviceAccount.jsonContent,
+      );
 
       final response = await _sendTopicMessage(
         client: client,

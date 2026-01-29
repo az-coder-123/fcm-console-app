@@ -62,3 +62,9 @@ final notificationHistoryProvider =
 final isLoadingProvider = StateProvider<bool>((ref) => false);
 
 final errorMessageProvider = StateProvider<String?>((ref) => null);
+
+// Token Selection State
+
+final selectedDeviceTokensProvider = StateProvider<Set<String>>(
+  (ref) => <String>{},
+);

@@ -2,7 +2,7 @@
 class AppConstants {
   // Database
   static const String databaseName = 'fcm_app.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
 
   // Table names
   static const String tableServiceAccounts = 'service_accounts';
