@@ -18,10 +18,6 @@ class NotificationComposer extends ConsumerWidget {
     final formState = ref.watch(notificationFormProvider);
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
 
-    // REMOVED ref.listen() - it was being called on every rebuild
-    // Form data is now permanently persisted by StateNotifierProvider
-    // Profile changes are handled separately via manual reset button or explicit call
-
     return Scaffold(
       appBar: AppBar(title: const Text('Send Notification'), elevation: 0),
       body: Container(
@@ -31,10 +27,10 @@ class NotificationComposer extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildDescription(context),
-              const SizedBox(height: 24),
               _buildProfileCheck(activeAccountAsync),
               if (activeAccountAsync.value != null) ...[
                 const SizedBox(height: 24),
+                _buildTokenSelectionSection(formState.sendToTopic),
                 _buildSelectedTokensInfo(formState.selectedTokens, ref),
                 Card(
                   child: Padding(
@@ -43,7 +39,6 @@ class NotificationComposer extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _buildTokenSelectionSection(formState.sendToTopic),
                 _buildDataPairsEditor(ref, formState),
                 _buildActionButtons(ref, context),
               ],
