@@ -295,11 +295,23 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
             OutlinedButton.icon(
               onPressed: _addProfile,
               icon: const Icon(Icons.add, color: Color(0xFF1E88E5)),
-              label: const Text('Add New Profile', style: TextStyle(color: Color(0xFF1E88E5))),
+              label: const Text(
+                'Add New Profile',
+                style: TextStyle(color: Color(0xFF1E88E5)),
+              ),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -382,7 +394,10 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
               onTap: () => _selectProfile(profile),
               child: Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
@@ -402,7 +417,9 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
                       decoration: BoxDecoration(
                         color: isActive
                             ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.surfaceContainerHighest,
+                            : Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
@@ -421,15 +438,17 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
                         children: [
                           Text(
                             profile.name,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             'ID: ${profile.id}  •  Created: ${_formatDate(profile.createdAt)}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                           ),
                         ],
@@ -438,7 +457,10 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
                     const SizedBox(width: 12),
                     if (isActive)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(20),
@@ -446,7 +468,9 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
                         child: Text(
                           'Active',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
