@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/device_token.dart';
@@ -19,11 +20,26 @@ class _TokenListState extends ConsumerState<TokenList> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  final TextEditingController _searchController = TextEditingController();
+  String _platformFilter = 'All'; // All, iOS, Android, Web
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeAccountAsync = ref.watch(activeServiceAccountProvider);
     final supabaseService = ref.watch(supabaseServiceProvider);
     final formState = ref.watch(notificationFormProvider);
+
+    final visibleTokens = _filterTokens(
+      _tokens,
+      _searchController.text,
+      _platformFilter,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -90,26 +106,113 @@ class _TokenListState extends ConsumerState<TokenList> {
             if (activeAccountAsync.value != null) ...[
               const SizedBox(height: 24),
 
-              // Fetch button
-              ElevatedButton.icon(
-                onPressed: _isLoading ? null : _fetchTokens,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh),
-                label: Text(_isLoading ? 'Loading...' : 'Fetch Tokens'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+              // Header actions: Fetch, Select All, Clear
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _fetchTokens,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
+                    label: Text(_isLoading ? 'Loading...' : 'Fetch Tokens'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    onPressed: visibleTokens.isEmpty
+                        ? null
+                        : _selectAllVisibleTokens,
+                    child: const Text('Select All'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => ref
+                        .read(notificationFormProvider.notifier)
+                        .clearSelectedTokens(),
+                    child: const Text('Clear'),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Search and platform filters
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search),
+                        hintText: 'Search tokens or userId',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: ['All', 'iOS', 'Android', 'Web'].map((platform) {
+                      final selected = _platformFilter == platform;
+                      return ChoiceChip(
+                        label: Text(platform),
+                        selected: selected,
+                        onSelected: (_) => setState(() {
+                          _platformFilter = platform;
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Info bar
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Text('${visibleTokens.length} tokens'),
+                    const SizedBox(width: 12),
+                    const VerticalDivider(width: 1),
+                    const SizedBox(width: 12),
+                    Text('${formState.selectedTokens.length} selected'),
+                    const Spacer(),
+                    if (_errorMessage != null)
+                      Flexible(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red.shade700),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
               // Error message
               if (_errorMessage != null)
@@ -185,7 +288,23 @@ class _TokenListState extends ConsumerState<TokenList> {
               Expanded(
                 child: _tokens.isEmpty
                     ? _buildEmptyState(supabaseService.isInitialized)
-                    : _buildTokensList(formState.selectedTokens),
+                    : (visibleTokens.isNotEmpty
+                          ? _buildTokensList(
+                              visibleTokens,
+                              formState.selectedTokens,
+                            )
+                          : Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                'No tokens match your filters.',
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                            )),
               ),
             ],
           ],
@@ -224,11 +343,15 @@ class _TokenListState extends ConsumerState<TokenList> {
     );
   }
 
-  Widget _buildTokensList(Set<String> selectedTokens) {
-    return ListView.builder(
-      itemCount: _tokens.length,
+  Widget _buildTokensList(
+    List<DeviceToken> tokens,
+    Set<String> selectedTokens,
+  ) {
+    return ListView.separated(
+      itemCount: tokens.length,
+      separatorBuilder: (context, index) => const Divider(height: 0),
       itemBuilder: (context, index) {
-        final token = _tokens[index];
+        final token = tokens[index];
         final isSelected = selectedTokens.contains(token.token);
         return _buildTokenCard(token, isSelected);
       },
@@ -461,22 +584,24 @@ class _TokenListState extends ConsumerState<TokenList> {
     }
   }
 
-  void _copyToken(String token) {
-    // Note: In a real app, you would use flutter/services to copy to clipboard
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Token copied to clipboard'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  void _copyToken(String token) async {
+    await Clipboard.setData(ClipboardData(text: token));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Token copied to clipboard'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   IconData _getPlatformIcon(String? platform) {
-    switch (platform?.toLowerCase()) {
-      case 'android':
-        return Icons.android;
+    switch ((platform ?? '').toLowerCase()) {
       case 'ios':
         return Icons.phone_iphone;
+      case 'android':
+        return Icons.android;
       case 'web':
         return Icons.web;
       default:
@@ -490,5 +615,32 @@ class _TokenListState extends ConsumerState<TokenList> {
     final d = '${_pad(date.day)}/${_pad(date.month)}/${date.year}';
     final t = '${_pad(date.hour)}:${_pad(date.minute)}:${_pad(date.second)}';
     return '$d $t';
+  }
+
+  List<DeviceToken> _filterTokens(
+    List<DeviceToken> tokens,
+    String query,
+    String platform,
+  ) {
+    final q = query.trim().toLowerCase();
+    return tokens.where((t) {
+      if (platform != 'All' &&
+          (t.platform ?? '').toLowerCase() != platform.toLowerCase())
+        return false;
+      if (q.isEmpty) return true;
+      return (t.token.toLowerCase().contains(q) ||
+          (t.userId ?? '').toLowerCase().contains(q));
+    }).toList();
+  }
+
+  void _selectAllVisibleTokens() {
+    final visibleTokens = _filterTokens(
+      _tokens,
+      _searchController.text,
+      _platformFilter,
+    );
+    for (final t in visibleTokens) {
+      ref.read(notificationFormProvider.notifier).toggleToken(t.token);
+    }
   }
 }
