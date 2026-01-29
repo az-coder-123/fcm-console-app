@@ -625,9 +625,12 @@ class _TokenListState extends ConsumerState<TokenList> {
     final q = query.trim().toLowerCase();
     return tokens.where((t) {
       if (platform != 'All' &&
-          (t.platform ?? '').toLowerCase() != platform.toLowerCase())
+          (t.platform ?? '').toLowerCase() != platform.toLowerCase()) {
         return false;
-      if (q.isEmpty) return true;
+      }
+      if (q.isEmpty) {
+        return true;
+      }
       return (t.token.toLowerCase().contains(q) ||
           (t.userId ?? '').toLowerCase().contains(q));
     }).toList();
