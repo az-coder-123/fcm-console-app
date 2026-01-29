@@ -32,9 +32,25 @@ class HelpPanel extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Supabase configuration is required to fetch device tokens. Make sure your fcm_user_tokens table is properly set up.',
-                  style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                    children: [
+                      const TextSpan(
+                        text:
+                            'Supabase configuration is required to fetch device tokens. Make sure your ',
+                      ),
+                      TextSpan(
+                        text: 'fcm_user_tokens',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                      const TextSpan(text: ' table is properly set up.'),
+                    ],
+                  ),
                 ),
               ),
             ],
