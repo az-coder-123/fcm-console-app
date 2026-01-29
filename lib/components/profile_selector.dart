@@ -292,15 +292,14 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
             const SizedBox(height: 24),
 
             // Add profile button
-            ElevatedButton.icon(
+            OutlinedButton.icon(
               onPressed: _addProfile,
-              icon: const Icon(Icons.add),
-              label: const Text('Add New Profile'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
+              icon: const Icon(Icons.add, color: Color(0xFF1E88E5)),
+              label: const Text('Add New Profile', style: TextStyle(color: Color(0xFF1E88E5))),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
             const SizedBox(height: 24),
@@ -378,57 +377,78 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
         return activeProfileAsync.when(
           data: (activeProfile) {
             final isActive = activeProfile?.id == profile.id;
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              elevation: isActive ? 4 : 1,
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isActive
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: Icon(
-                    isActive ? Icons.check : Icons.cloud,
-                    color: isActive
-                        ? Theme.of(context).colorScheme.onPrimary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                title: Text(
-                  profile.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ID: ${profile.id}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      'Created: ${_formatDate(profile.createdAt)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+            return InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _selectProfile(profile),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color.fromRGBO(0, 0, 0, isActive ? 0.06 : 0.03),
+                      blurRadius: isActive ? 8 : 4,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
                   children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Icon(
+                          isActive ? Icons.check : Icons.person,
+                          color: isActive
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.name,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'ID: ${profile.id}  •  Created: ${_formatDate(profile.createdAt)}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     if (isActive)
-                      Chip(
-                        label: const Text('Active'),
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.primaryContainer,
-                        labelStyle: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Active',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     IconButton(
@@ -439,7 +459,6 @@ class _ProfileSelectorState extends ConsumerState<ProfileSelector> {
                     ),
                   ],
                 ),
-                onTap: () => _selectProfile(profile),
               ),
             );
           },
