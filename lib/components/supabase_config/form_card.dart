@@ -118,8 +118,7 @@ class SupabaseConfigCard extends StatelessWidget {
                                 : const Icon(Icons.check_circle),
                             label: Text(isLoading ? 'Applying...' : 'Apply'),
                             style: ElevatedButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
                           ),
                         ),
@@ -132,8 +131,7 @@ class SupabaseConfigCard extends StatelessWidget {
                             icon: const Icon(Icons.clear),
                             label: const Text('Clear'),
                             style: OutlinedButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               foregroundColor: isInitialized
                                   ? Colors.red
                                   : Colors.red.withAlpha(128),
